@@ -1,5 +1,5 @@
 {
-  "name": "layout",
+  "name": "poc",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,10 +11,17 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "modern-normalize": "^3.0.1",
+    "@react-three/drei": "^10.0.8",
+    "@react-three/fiber": "^9.1.2",
+    "@types/node": "^22.15.21",
+    "@types/three": "^0.176.0",
+    "lucide-react": "^0.511.0",
+    "monaco-editor": "^0.52.2",
     "react": "^19.1.0",
-    "react-blockly": "^9.0.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.7",
+    "three": "^0.176.0",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
