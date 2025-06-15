@@ -9,6 +9,7 @@ interface MainHeaderProps {
   onCSPChange: (csp: "AWS" | "GCP" | "Azure") => void;
   onNewProject: () => void;
   onLoadProject: () => void;
+  onSaveProject: () => void;
   userName: string;
   userImageUrl: string;
 }
@@ -21,6 +22,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({
   onCSPChange,
   onNewProject,
   onLoadProject,
+  onSaveProject,
   userName,
   userImageUrl,
 }) => {
@@ -89,7 +91,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({
             <FolderOpen className="w-4 h-4 mr-1" />새 프로젝트 열기
           </button>
           <button
-            onClick={onNewProject}
+            onClick={onSaveProject}
             className="flex items-center text-sm px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
             <Save className="w-4 h-4 mr-1" />

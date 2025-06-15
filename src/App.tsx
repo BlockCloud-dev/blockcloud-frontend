@@ -12,6 +12,12 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useConnections } from "./hooks/useConnections";
 import { generateTerraformCode } from "./utils/codeGenerator";
 import type { ProjectData } from "./utils/projectManager";
+import {
+  saveProject,
+  loadProjectFromFile,
+  saveProjectToLocalStorage,
+  loadProjectFromLocalStorage
+} from "./utils/projectManager";
 import { snapToGrid } from "./utils/snapGrid";
 import { analyzeEBSRole } from "./utils/ebsRoleManager";
 import { ResizablePanel } from "./components/ui/ResizablePanel";
@@ -51,6 +57,7 @@ function App() {
     cancelConnecting,
     completeConnection,
     detectAndCreateStackingConnections,
+    setConnections,
   } = useConnections();
 
   // 스태킹 규칙 함수
@@ -103,9 +110,8 @@ function App() {
       timestamp: Date.now(),
       properties: {
         name: blockData.name || `New ${blockData.id}`,
-        description: `${
-          blockData.name
-        } created at ${new Date().toLocaleString()}`,
+        description: `${blockData.name
+          } created at ${new Date().toLocaleString()}`,
       },
       size: blockSize,
     };
@@ -285,10 +291,10 @@ function App() {
       prev.map((block) =>
         block.id === blockId
           ? {
-              ...block,
-              properties: { ...block.properties, ...properties },
-              timestamp: Date.now(), // 수정 시간 업데이트
-            }
+            ...block,
+            properties: { ...block.properties, ...properties },
+            timestamp: Date.now(), // 수정 시간 업데이트
+          }
           : block
       )
     );
@@ -746,32 +752,76 @@ function App() {
   // 프로젝트 관리 핸들러
   const handleLoadProject = (projectData: ProjectData) => {
     setDroppedBlocks(projectData.blocks);
-    // 연결도 로드해야 하는데, useConnections 훅에서 setConnections를 제공하지 않으므로
-    // 임시로 콘솔에 로그만 출력
+    setConnections(projectData.connections);
+    setProjectName(projectData.name);
     console.log(
       "🔄 Project loaded:",
       projectData.name,
       "with",
       projectData.blocks.length,
-      "blocks"
+      "blocks and",
+      projectData.connections.length,
+      "connections"
     );
     setSelectedBlockId(null);
     setPropertiesBlockId(null);
-    setActiveTab("code"); // 프로젝트 로드 시 코드 탭으로 전환
   };
 
   const handleNewProject = () => {
     setDroppedBlocks([]);
+    setConnections([]);
     setSelectedBlockId(null);
-    setActiveTab("code");
+    setPropertiesBlockId(null);
+    setProjectName("MyInfraProject");
     console.log("🆕 New project created");
   };
 
-  const handleToggleConnecting = () => {
-    if (isConnecting) {
-      cancelConnecting();
-    } else if (selectedBlockId) {
-      startConnecting(selectedBlockId);
+  const handleSaveProject = () => {
+    if (droppedBlocks.length === 0) {
+      alert('저장할 블록이 없습니다.');
+      return;
+    }
+
+    const projectData = saveProject(
+      projectName,
+      droppedBlocks,
+      connections,
+      `${currentCSP} 인프라 프로젝트`
+    );
+
+    // localStorage에 저장
+    const key = `project_${Date.now()}`;
+    if (saveProjectToLocalStorage(projectData, key)) {
+      alert('프로젝트가 저장되었습니다.');
+    } else {
+      alert('프로젝트 저장에 실패했습니다.');
+    }
+  };
+
+  const handleQuickLoadProject = () => {
+    // 가장 최근 저장된 프로젝트 로드
+    const recentProject = loadProjectFromLocalStorage('current_project');
+    if (recentProject) {
+      handleLoadProject(recentProject);
+      alert('프로젝트가 로드되었습니다.');
+    } else {
+      // 파일 로드 다이얼로그 열기
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          try {
+            const projectData = await loadProjectFromFile(file);
+            handleLoadProject(projectData);
+            alert('프로젝트가 로드되었습니다.');
+          } catch (error) {
+            alert('프로젝트 파일을 로드할 수 없습니다: ' + (error as Error).message);
+          }
+        }
+      };
+      input.click();
     }
   };
 
@@ -860,8 +910,9 @@ function App() {
         currentCSP={currentCSP}
         onCSPChange={setCurrentCSP}
         isSaved={true}
-        onNewProject={() => console.log("새 프로젝트 생성")}
-        onLoadProject={() => console.log("프로젝트 열기")}
+        onNewProject={handleNewProject}
+        onLoadProject={handleQuickLoadProject}
+        onSaveProject={handleSaveProject}
         userName="홍길동"
         userImageUrl="/my-profile.jpg"
       />
@@ -963,8 +1014,8 @@ function App() {
               마지막 업데이트:{" "}
               {droppedBlocks.length > 0
                 ? new Date(
-                    Math.max(...droppedBlocks.map((b) => b.timestamp))
-                  ).toLocaleTimeString()
+                  Math.max(...droppedBlocks.map((b) => b.timestamp))
+                ).toLocaleTimeString()
                 : "없음"}
             </span>
           </div>
