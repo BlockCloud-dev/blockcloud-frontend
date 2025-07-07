@@ -1,17 +1,17 @@
 import React from "react";
 import { Link2, Code, Settings } from "lucide-react";
+import { useUIStore, useConnectionStore } from "../../stores";
 
 interface TabHeaderProps {
-  activeTab: "connections" | "code" | "properties";
-  onTabChange: (tab: "connections" | "code" | "properties") => void;
-  connectionCount: number;
+  // props 없이 Zustand에서 직접 상태 가져오기
 }
 
-export const TabHeader: React.FC<TabHeaderProps> = ({
-  activeTab,
-  onTabChange,
-  connectionCount,
-}) => {
+export const TabHeader: React.FC<TabHeaderProps> = ({ }) => {
+  // Zustand에서 필요한 상태만 구독
+  const activeTab = useUIStore((state) => state.activeTab);
+  const setActiveTab = useUIStore((state) => state.setActiveTab);
+  const connectionCount = useConnectionStore((state) => state.connections.length);
+
   const tabs = [
     {
       id: "connections" as const,
@@ -36,14 +36,13 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
       {tabs.map(({ id, icon: Icon, label, badge }) => (
         <button
           key={id}
-          onClick={() => onTabChange(id)}
+          onClick={() => setActiveTab(id)}
           className={`
                         flex items-center px-4 py-3 text-sm font-medium transition-colors
-                        ${
-                          activeTab === id
-                            ? "text-white bg-gray-700 border-b-2 border-blue-400"
-                            : "text-gray-300 hover:text-white hover:bg-gray-700"
-                        }
+                        ${activeTab === id
+              ? "text-white bg-gray-700 border-b-2 border-blue-400"
+              : "text-gray-300 hover:text-white hover:bg-gray-700"
+            }
                         relative
                     `}
         >

@@ -10,10 +10,9 @@ import {
   Route,
   Building2,
 } from "lucide-react";
+import { useProjectStore } from "../../stores";
 
 interface BlockPaletteProps {
-  selectedCSP: "AWS" | "GCP" | "Azure";
-  onCSPChange: (csp: "AWS" | "GCP" | "Azure") => void;
   onDragStart?: (blockData: any) => void;
   onDragEnd?: () => void;
 }
@@ -86,11 +85,13 @@ const CATEGORY_TABS = [
 ];
 
 export function BlockPalette({
-  selectedCSP,
-  onCSPChange,
   onDragStart,
   onDragEnd,
 }: BlockPaletteProps) {
+  // Zustand에서 CSP 상태 가져오기
+  const selectedCSP = useProjectStore((state) => state.currentCSP);
+  const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
+
   const [search, setSearch] = React.useState("");
   const [autoScaffold, setAutoScaffold] = React.useState(true);
   const [selectedCategory, setSelectedCategory] = React.useState<string>(
@@ -123,12 +124,11 @@ export function BlockPalette({
         {CSP_TABS.map((csp) => (
           <button
             key={csp}
-            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
-              selectedCSP === csp
+            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${selectedCSP === csp
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200 text-gray-600"
-            }`}
-            onClick={() => onCSPChange(csp as "AWS" | "GCP" | "Azure")}
+              }`}
+            onClick={() => setCurrentCSP(csp as "AWS" | "GCP" | "Azure")}
           >
             {csp.toUpperCase()}
           </button>
@@ -140,11 +140,10 @@ export function BlockPalette({
         {CATEGORY_TABS.map((cat) => (
           <button
             key={cat}
-            className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${
-              selectedCategory === cat
+            className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${selectedCategory === cat
                 ? "bg-blue-100 text-blue-700 border border-blue-400"
                 : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-            }`}
+              }`}
             onClick={() => setSelectedCategory(cat)}
           >
             {cat}

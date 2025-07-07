@@ -1,477 +1,491 @@
 import React from 'react';
-import type { DroppedBlock, BlockProperties } from '../../types/blocks';
+import type { BlockProperties } from '../../types/blocks';
+import { useBlockStore } from '../../stores';
 
 interface PropertiesPanelProps {
-    selectedBlock: DroppedBlock | null;
-    onPropertiesChange: (blockId: string, properties: Partial<BlockProperties>) => void;
-    onResize: (blockId: string, newSize: [number, number, number]) => void;
+  // props 없이 Zustand에서 직접 상태 가져오기
 }
 
-export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
-    selectedBlock,
-    onPropertiesChange,
-    onResize
-}) => {
-    // 입력 필드에서 키보드 이벤트가 전역 단축키를 트리거하지 않도록 방지
-    const handleInputKeyDown = (e: React.KeyboardEvent) => {
-        // Delete, Backspace 키의 이벤트 전파를 막아서 블록 삭제 방지
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            e.stopPropagation();
-        }
-        // 화살표 키의 이벤트 전파도 막아서 크기 조절 방지
-        if (e.key.startsWith('Arrow')) {
-            e.stopPropagation();
-        }
-    };
+export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
+  // Zustand에서 필요한 상태와 액션 가져오기
+  const droppedBlocks = useBlockStore((state) => state.droppedBlocks);
+  const propertiesBlockId = useBlockStore((state) => state.propertiesBlockId);
+  const updateBlockProperties = useBlockStore((state) => state.updateBlockProperties);
+  const resizeBlock = useBlockStore((state) => state.resizeBlock);
 
-    if (!selectedBlock) {
+  // 선택된 블록 찾기
+  const selectedBlock = propertiesBlockId
+    ? droppedBlocks.find(block => block.id === propertiesBlockId) || null
+    : null;
+
+  // 입력 필드에서 키보드 이벤트가 전역 단축키를 트리거하지 않도록 방지
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    // Delete, Backspace 키의 이벤트 전파를 막아서 블록 삭제 방지
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.stopPropagation();
+    }
+    // 화살표 키의 이벤트 전파도 막아서 크기 조절 방지
+    if (e.key.startsWith('Arrow')) {
+      e.stopPropagation();
+    }
+  };
+
+  const handlePropertiesChange = (blockId: string, properties: Partial<BlockProperties>) => {
+    updateBlockProperties(blockId, properties);
+  };
+
+  const handleResize = (blockId: string, newSize: [number, number, number]) => {
+    resizeBlock(blockId, newSize);
+  };
+
+  if (!selectedBlock) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-800 text-gray-400 p-4">
+        <p className="text-center">블록을 선택하여 속성을 편집하세요</p>
+      </div>
+    );
+  }
+
+  const handleInputChange = (key: string, value: any) => {
+    handlePropertiesChange(selectedBlock.id, { [key]: value });
+  };
+
+  const handleSizeChange = (index: number, value: number) => {
+    if (!selectedBlock.size) return;
+
+    const newSize: [number, number, number] = [...selectedBlock.size];
+    newSize[index] = value;
+    handleResize(selectedBlock.id, newSize);
+  };
+
+  const renderInputForType = (key: string, value: any) => {
+    if (typeof value === 'boolean') {
+      return (
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id={key}
+            checked={value}
+            onChange={(e) => handleInputChange(key, e.target.checked)}
+            className="w-4 h-4 rounded bg-gray-700 border-gray-600"
+          />
+          <label htmlFor={key} className="ml-2">{key}</label>
+        </div>
+      );
+    } else if (typeof value === 'number') {
+      return (
+        <div className="mb-2">
+          <label htmlFor={key} className="block text-sm mb-1">{key}</label>
+          <input
+            type="number"
+            id={key}
+            value={value}
+            onChange={(e) => handleInputChange(key, parseFloat(e.target.value))}
+            onKeyDown={handleInputKeyDown}
+            className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+          />
+        </div>
+      );
+    } else if (typeof value === 'string') {
+      if (key === 'cidrBlock') {
         return (
-            <div className="h-full flex items-center justify-center bg-gray-800 text-gray-400 p-4">
-                <p className="text-center">블록을 선택하여 속성을 편집하세요</p>
-            </div>
+          <div className="mb-2">
+            <label htmlFor={key} className="block text-sm mb-1">CIDR Block</label>
+            <input
+              type="text"
+              id={key}
+              value={value}
+              onChange={(e) => handleInputChange(key, e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              placeholder="10.0.0.0/16"
+              className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+            />
+          </div>
         );
+      } else if (key === 'instanceType') {
+        return (
+          <div className="mb-2">
+            <label htmlFor={key} className="block text-sm mb-1">인스턴스 타입</label>
+            <select
+              id={key}
+              value={value}
+              onChange={(e) => handleInputChange(key, e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+            >
+              <option value="t2.micro">t2.micro</option>
+              <option value="t2.small">t2.small</option>
+              <option value="t2.medium">t2.medium</option>
+              <option value="m5.large">m5.large</option>
+              <option value="c5.large">c5.large</option>
+            </select>
+          </div>
+        );
+      } else {
+        return (
+          <div className="mb-2">
+            <label htmlFor={key} className="block text-sm mb-1">{key}</label>
+            <input
+              type="text"
+              id={key}
+              value={value}
+              onChange={(e) => handleInputChange(key, e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+            />
+          </div>
+        );
+      }
     }
 
-    const handleInputChange = (key: string, value: any) => {
-        onPropertiesChange(selectedBlock.id, { [key]: value });
-    };
+    return null;
+  };
 
-    const handleSizeChange = (index: number, value: number) => {
-        if (!selectedBlock.size) return;
-
-        const newSize: [number, number, number] = [...selectedBlock.size];
-        newSize[index] = value;
-        onResize(selectedBlock.id, newSize);
-    };
-
-    const renderInputForType = (key: string, value: any) => {
-        if (typeof value === 'boolean') {
-            return (
-                <div className="flex items-center">
-                    <input
-                        type="checkbox"
-                        id={key}
-                        checked={value}
-                        onChange={(e) => handleInputChange(key, e.target.checked)}
-                        className="w-4 h-4 rounded bg-gray-700 border-gray-600"
-                    />
-                    <label htmlFor={key} className="ml-2">{key}</label>
-                </div>
-            );
-        } else if (typeof value === 'number') {
-            return (
-                <div className="mb-2">
-                    <label htmlFor={key} className="block text-sm mb-1">{key}</label>
-                    <input
-                        type="number"
-                        id={key}
-                        value={value}
-                        onChange={(e) => handleInputChange(key, parseFloat(e.target.value))}
-                        onKeyDown={handleInputKeyDown}
-                        className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-                    />
-                </div>
-            );
-        } else if (typeof value === 'string') {
-            if (key === 'cidrBlock') {
-                return (
-                    <div className="mb-2">
-                        <label htmlFor={key} className="block text-sm mb-1">CIDR Block</label>
-                        <input
-                            type="text"
-                            id={key}
-                            value={value}
-                            onChange={(e) => handleInputChange(key, e.target.value)}
-                            onKeyDown={handleInputKeyDown}
-                            placeholder="10.0.0.0/16"
-                            className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-                        />
-                    </div>
-                );
-            } else if (key === 'instanceType') {
-                return (
-                    <div className="mb-2">
-                        <label htmlFor={key} className="block text-sm mb-1">인스턴스 타입</label>
-                        <select
-                            id={key}
-                            value={value}
-                            onChange={(e) => handleInputChange(key, e.target.value)}
-                            onKeyDown={handleInputKeyDown}
-                            className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-                        >
-                            <option value="t2.micro">t2.micro</option>
-                            <option value="t2.small">t2.small</option>
-                            <option value="t2.medium">t2.medium</option>
-                            <option value="m5.large">m5.large</option>
-                            <option value="c5.large">c5.large</option>
-                        </select>
-                    </div>
-                );
-            } else {
-                return (
-                    <div className="mb-2">
-                        <label htmlFor={key} className="block text-sm mb-1">{key}</label>
-                        <input
-                            type="text"
-                            id={key}
-                            value={value}
-                            onChange={(e) => handleInputChange(key, e.target.value)}
-                            onKeyDown={handleInputKeyDown}
-                            className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-                        />
-                    </div>
-                );
-            }
-        }
-
-        return null;
-    };
-
-    // 블록 타입별 속성 렌더링
-    const renderBlockProperties = () => {
-        switch (selectedBlock.type) {
-            case 'vpc':
-                return (
-                    <>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
-                        {renderInputForType('enableDnsSupport', selectedBlock.properties.enableDnsSupport)}
-                        {renderInputForType('enableDnsHostnames', selectedBlock.properties.enableDnsHostnames)}
-                    </>
-                );
-            case 'subnet':
-                return (
-                    <>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
-                        {renderInputForType('availabilityZone', selectedBlock.properties.availabilityZone)}
-                    </>
-                );
-            case 'ec2':
-                return (
-                    <>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        {renderInputForType('instanceType', selectedBlock.properties.instanceType)}
-                        {renderInputForType('ami', selectedBlock.properties.ami)}
-                    </>
-                );
-            case 'security-group':
-                return (
-                    <>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        <div className="mb-2 mt-4">
-                            <h4 className="font-medium">보안 규칙</h4>
-                            {selectedBlock.properties.securityRules?.map((rule, index) => (
-                                <div key={index} className="mt-2 p-2 border border-gray-600 rounded">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="block text-sm mb-1">타입</label>
-                                            <select
-                                                value={rule.type}
-                                                onChange={(e) => {
-                                                    const updatedRules = [...selectedBlock.properties.securityRules!];
-                                                    updatedRules[index] = { ...rule, type: e.target.value as 'ingress' | 'egress' };
-                                                    handleInputChange('securityRules', updatedRules);
-                                                }}
-                                                onKeyDown={handleInputKeyDown}
-                                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                                            >
-                                                <option value="ingress">Ingress</option>
-                                                <option value="egress">Egress</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm mb-1">프로토콜</label>
-                                            <select
-                                                value={rule.protocol}
-                                                onChange={(e) => {
-                                                    const updatedRules = [...selectedBlock.properties.securityRules!];
-                                                    updatedRules[index] = { ...rule, protocol: e.target.value };
-                                                    handleInputChange('securityRules', updatedRules);
-                                                }}
-                                                onKeyDown={handleInputKeyDown}
-                                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                                            >
-                                                <option value="tcp">TCP</option>
-                                                <option value="udp">UDP</option>
-                                                <option value="icmp">ICMP</option>
-                                                <option value="-1">All</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 mt-2">
-                                        <div>
-                                            <label className="block text-sm mb-1">From Port</label>
-                                            <input
-                                                type="number"
-                                                value={rule.fromPort}
-                                                onChange={(e) => {
-                                                    const updatedRules = [...selectedBlock.properties.securityRules!];
-                                                    updatedRules[index] = { ...rule, fromPort: parseInt(e.target.value) };
-                                                    handleInputChange('securityRules', updatedRules);
-                                                }}
-                                                onKeyDown={handleInputKeyDown}
-                                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm mb-1">To Port</label>
-                                            <input
-                                                type="number"
-                                                value={rule.toPort}
-                                                onChange={(e) => {
-                                                    const updatedRules = [...selectedBlock.properties.securityRules!];
-                                                    updatedRules[index] = { ...rule, toPort: parseInt(e.target.value) };
-                                                    handleInputChange('securityRules', updatedRules);
-                                                }}
-                                                onKeyDown={handleInputKeyDown}
-                                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="mt-2">
-                                        <label className="block text-sm mb-1">CIDR Blocks</label>
-                                        <input
-                                            type="text"
-                                            value={rule.cidrBlocks.join(', ')}
-                                            onChange={(e) => {
-                                                const updatedRules = [...selectedBlock.properties.securityRules!];
-                                                updatedRules[index] = {
-                                                    ...rule,
-                                                    cidrBlocks: e.target.value.split(',').map(s => s.trim())
-                                                };
-                                                handleInputChange('securityRules', updatedRules);
-                                            }}
-                                            onKeyDown={handleInputKeyDown}
-                                            placeholder="0.0.0.0/0"
-                                            className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                            <button
-                                onClick={() => {
-                                    const newRule = {
-                                        type: 'ingress' as const,
-                                        protocol: 'tcp',
-                                        fromPort: 80,
-                                        toPort: 80,
-                                        cidrBlocks: ['0.0.0.0/0']
-                                    };
-                                    const updatedRules = [...(selectedBlock.properties.securityRules || []), newRule];
-                                    handleInputChange('securityRules', updatedRules);
-                                }}
-                                className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                            >
-                                규칙 추가
-                            </button>
-                        </div>
-                    </>
-                );
-            case 'load-balancer':
-                return (
-                    <>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        <div className="mb-2">
-                            <label htmlFor="loadBalancerType" className="block text-sm mb-1">로드 밸런서 타입</label>
-                            <select
-                                id="loadBalancerType"
-                                value={selectedBlock.properties.loadBalancerType}
-                                onChange={(e) => handleInputChange('loadBalancerType', e.target.value)}
-                                onKeyDown={handleInputKeyDown}
-                                className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-                            >
-                                <option value="application">Application Load Balancer</option>
-                                <option value="network">Network Load Balancer</option>
-                            </select>
-                        </div>
-                    </>
-                );
-            case 'volume':
-                return (
-                    <>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        {renderInputForType('volumeSize', selectedBlock.properties.volumeSize)}
-                        <div className="mb-2">
-                            <label htmlFor="volumeType" className="block text-sm mb-1">볼륨 타입</label>
-                            <select
-                                id="volumeType"
-                                value={selectedBlock.properties.volumeType}
-                                onChange={(e) => handleInputChange('volumeType', e.target.value)}
-                                onKeyDown={handleInputKeyDown}
-                                className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-                            >
-                                <option value="gp2">gp2</option>
-                                <option value="gp3">gp3</option>
-                                <option value="io1">io1</option>
-                                <option value="st1">st1</option>
-                                <option value="sc1">sc1</option>
-                                <option value="standard">standard</option>
-                            </select>
-                        </div>
-                    </>
-                );
-            default:
-                return (
+  // 블록 타입별 속성 렌더링
+  const renderBlockProperties = () => {
+    switch (selectedBlock.type) {
+      case 'vpc':
+        return (
+          <>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
+            {renderInputForType('enableDnsSupport', selectedBlock.properties.enableDnsSupport)}
+            {renderInputForType('enableDnsHostnames', selectedBlock.properties.enableDnsHostnames)}
+          </>
+        );
+      case 'subnet':
+        return (
+          <>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
+            {renderInputForType('availabilityZone', selectedBlock.properties.availabilityZone)}
+          </>
+        );
+      case 'ec2':
+        return (
+          <>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            {renderInputForType('instanceType', selectedBlock.properties.instanceType)}
+            {renderInputForType('ami', selectedBlock.properties.ami)}
+          </>
+        );
+      case 'security-group':
+        return (
+          <>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            <div className="mb-2 mt-4">
+              <h4 className="font-medium">보안 규칙</h4>
+              {selectedBlock.properties.securityRules?.map((rule, index) => (
+                <div key={index} className="mt-2 p-2 border border-gray-600 rounded">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                        {renderInputForType('name', selectedBlock.properties.name)}
-                        {renderInputForType('description', selectedBlock.properties.description)}
+                      <label className="block text-sm mb-1">타입</label>
+                      <select
+                        value={rule.type}
+                        onChange={(e) => {
+                          const updatedRules = [...selectedBlock.properties.securityRules!];
+                          updatedRules[index] = { ...rule, type: e.target.value as 'ingress' | 'egress' };
+                          handleInputChange('securityRules', updatedRules);
+                        }}
+                        onKeyDown={handleInputKeyDown}
+                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                      >
+                        <option value="ingress">Ingress</option>
+                        <option value="egress">Egress</option>
+                      </select>
                     </div>
-                );
-        }
-    };
-
-    // 프리셋 크기 적용
-    const applyPresetSize = (preset: 'small' | 'medium' | 'large' | 'xlarge') => {
-        const presets = {
-            small: [2, 0.2, 2] as [number, number, number],
-            medium: [4, 0.3, 4] as [number, number, number],
-            large: [6, 0.4, 6] as [number, number, number],
-            xlarge: [10, 0.5, 10] as [number, number, number]
-        };
-        onResize(selectedBlock.id, presets[preset]);
-    };
-
-    // foundation 타입(vpc, subnet)의 경우 크기 조절 UI 표시
-    const renderResizeControls = () => {
-        if (['vpc', 'subnet'].includes(selectedBlock.type) && selectedBlock.size) {
-            return (
-                <div className="border-t border-gray-600 pt-4 mt-4">
-                    <h3 className="font-medium mb-3">크기 조절</h3>
-
-                    {/* 프리셋 크기 버튼 */}
-                    <div className="mb-4">
-                        <label className="block text-sm mb-2">프리셋 크기</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={() => applyPresetSize('small')}
-                                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
-                            >
-                                소형 (2×2)
-                            </button>
-                            <button
-                                onClick={() => applyPresetSize('medium')}
-                                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
-                            >
-                                중형 (4×4)
-                            </button>
-                            <button
-                                onClick={() => applyPresetSize('large')}
-                                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
-                            >
-                                대형 (6×6)
-                            </button>
-                            <button
-                                onClick={() => applyPresetSize('xlarge')}
-                                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
-                            >
-                                특대형 (10×10)
-                            </button>
-                        </div>
+                    <div>
+                      <label className="block text-sm mb-1">프로토콜</label>
+                      <select
+                        value={rule.protocol}
+                        onChange={(e) => {
+                          const updatedRules = [...selectedBlock.properties.securityRules!];
+                          updatedRules[index] = { ...rule, protocol: e.target.value };
+                          handleInputChange('securityRules', updatedRules);
+                        }}
+                        onKeyDown={handleInputKeyDown}
+                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                      >
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                        <option value="icmp">ICMP</option>
+                        <option value="-1">All</option>
+                      </select>
                     </div>
-
-                    {/* 슬라이더와 직접 입력 */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className="block text-sm mb-1">가로 (Width)</label>
-                            <input
-                                type="range"
-                                min="1"
-                                max="20"
-                                step="0.5"
-                                value={selectedBlock.size[0]}
-                                onChange={(e) => handleSizeChange(0, parseFloat(e.target.value))}
-                                className="w-full mb-1"
-                            />
-                            <input
-                                type="number"
-                                min="1"
-                                max="20"
-                                step="0.5"
-                                value={selectedBlock.size[0]}
-                                onChange={(e) => handleSizeChange(0, parseFloat(e.target.value) || 1)}
-                                onKeyDown={handleInputKeyDown}
-                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm mb-1">높이 (Height)</label>
-                            <input
-                                type="range"
-                                min="0.1"
-                                max="2"
-                                step="0.1"
-                                value={selectedBlock.size[1]}
-                                onChange={(e) => handleSizeChange(1, parseFloat(e.target.value))}
-                                className="w-full mb-1"
-                            />
-                            <input
-                                type="number"
-                                min="0.1"
-                                max="2"
-                                step="0.1"
-                                value={selectedBlock.size[1]}
-                                onChange={(e) => handleSizeChange(1, parseFloat(e.target.value) || 0.1)}
-                                onKeyDown={handleInputKeyDown}
-                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm mb-1">세로 (Depth)</label>
-                            <input
-                                type="range"
-                                min="1"
-                                max="20"
-                                step="0.5"
-                                value={selectedBlock.size[2]}
-                                onChange={(e) => handleSizeChange(2, parseFloat(e.target.value))}
-                                className="w-full mb-1"
-                            />
-                            <input
-                                type="number"
-                                min="1"
-                                max="20"
-                                step="0.5"
-                                value={selectedBlock.size[2]}
-                                onChange={(e) => handleSizeChange(2, parseFloat(e.target.value) || 1)}
-                                onKeyDown={handleInputKeyDown}
-                                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
-                            />
-                        </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <label className="block text-sm mb-1">From Port</label>
+                      <input
+                        type="number"
+                        value={rule.fromPort}
+                        onChange={(e) => {
+                          const updatedRules = [...selectedBlock.properties.securityRules!];
+                          updatedRules[index] = { ...rule, fromPort: parseInt(e.target.value) };
+                          handleInputChange('securityRules', updatedRules);
+                        }}
+                        onKeyDown={handleInputKeyDown}
+                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                      />
                     </div>
-
-                    {/* 키보드 단축키 안내 */}
-                    <div className="mt-3 p-3 bg-gray-700 rounded text-xs">
-                        <div className="font-medium mb-2 text-blue-300">크기 조절 방법:</div>
-                        <div className="text-gray-300 space-y-1">
-                            <div>• 위 슬라이더/입력창으로 정확한 값 설정</div>
-                            <div>• 3D 화면에서 선택된 블록의 흰색/녹색 핸들 드래그</div>
-                            <div>• <span className="text-yellow-300">Shift + ↑/↓</span>: 높이 조절</div>
-                            <div>• <span className="text-yellow-300">Shift + ←/→</span>: 가로 조절</div>
-                            <div>• <span className="text-yellow-300">Ctrl + ↑/↓</span>: 세로 조절</div>
-                            <div>• <span className="text-yellow-300">Shift + 마우스 휠</span>: 전체 크기</div>
-                            <div>• <span className="text-yellow-300">Ctrl + 마우스 휠</span>: 높이만</div>
-                        </div>
+                    <div>
+                      <label className="block text-sm mb-1">To Port</label>
+                      <input
+                        type="number"
+                        value={rule.toPort}
+                        onChange={(e) => {
+                          const updatedRules = [...selectedBlock.properties.securityRules!];
+                          updatedRules[index] = { ...rule, toPort: parseInt(e.target.value) };
+                          handleInputChange('securityRules', updatedRules);
+                        }}
+                        onKeyDown={handleInputKeyDown}
+                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                      />
                     </div>
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-sm mb-1">CIDR Blocks</label>
+                    <input
+                      type="text"
+                      value={rule.cidrBlocks.join(', ')}
+                      onChange={(e) => {
+                        const updatedRules = [...selectedBlock.properties.securityRules!];
+                        updatedRules[index] = {
+                          ...rule,
+                          cidrBlocks: e.target.value.split(',').map(s => s.trim())
+                        };
+                        handleInputChange('securityRules', updatedRules);
+                      }}
+                      onKeyDown={handleInputKeyDown}
+                      placeholder="0.0.0.0/0"
+                      className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                    />
+                  </div>
                 </div>
-            );
-        }
-        return null;
+              ))}
+              <button
+                onClick={() => {
+                  const newRule = {
+                    type: 'ingress' as const,
+                    protocol: 'tcp',
+                    fromPort: 80,
+                    toPort: 80,
+                    cidrBlocks: ['0.0.0.0/0']
+                  };
+                  const updatedRules = [...(selectedBlock.properties.securityRules || []), newRule];
+                  handleInputChange('securityRules', updatedRules);
+                }}
+                className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                규칙 추가
+              </button>
+            </div>
+          </>
+        );
+      case 'load-balancer':
+        return (
+          <>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            <div className="mb-2">
+              <label htmlFor="loadBalancerType" className="block text-sm mb-1">로드 밸런서 타입</label>
+              <select
+                id="loadBalancerType"
+                value={selectedBlock.properties.loadBalancerType}
+                onChange={(e) => handleInputChange('loadBalancerType', e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+              >
+                <option value="application">Application Load Balancer</option>
+                <option value="network">Network Load Balancer</option>
+              </select>
+            </div>
+          </>
+        );
+      case 'volume':
+        return (
+          <>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            {renderInputForType('volumeSize', selectedBlock.properties.volumeSize)}
+            <div className="mb-2">
+              <label htmlFor="volumeType" className="block text-sm mb-1">볼륨 타입</label>
+              <select
+                id="volumeType"
+                value={selectedBlock.properties.volumeType}
+                onChange={(e) => handleInputChange('volumeType', e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+              >
+                <option value="gp2">gp2</option>
+                <option value="gp3">gp3</option>
+                <option value="io1">io1</option>
+                <option value="st1">st1</option>
+                <option value="sc1">sc1</option>
+                <option value="standard">standard</option>
+              </select>
+            </div>
+          </>
+        );
+      default:
+        return (
+          <div>
+            {renderInputForType('name', selectedBlock.properties.name)}
+            {renderInputForType('description', selectedBlock.properties.description)}
+          </div>
+        );
+    }
+  };
+
+  // 프리셋 크기 적용
+  const applyPresetSize = (preset: 'small' | 'medium' | 'large' | 'xlarge') => {
+    const presets = {
+      small: [2, 0.2, 2] as [number, number, number],
+      medium: [4, 0.3, 4] as [number, number, number],
+      large: [6, 0.4, 6] as [number, number, number],
+      xlarge: [10, 0.5, 10] as [number, number, number]
     };
+    handleResize(selectedBlock.id, presets[preset]);
+  };
 
-    return (
-        <div className="h-full bg-gray-800 text-white p-4 overflow-y-auto">
-            <div className="mb-4 pb-2 border-b border-gray-600">
-                <h2 className="text-lg font-semibold">
-                    {selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)} 속성
-                </h2>
-                <p className="text-sm text-gray-400">ID: {selectedBlock.id}</p>
-            </div>
+  // foundation 타입(vpc, subnet)의 경우 크기 조절 UI 표시
+  const renderResizeControls = () => {
+    if (['vpc', 'subnet'].includes(selectedBlock.type) && selectedBlock.size) {
+      return (
+        <div className="border-t border-gray-600 pt-4 mt-4">
+          <h3 className="font-medium mb-3">크기 조절</h3>
 
-            <div className="space-y-4">
-                {renderBlockProperties()}
-                {renderResizeControls()}
+          {/* 프리셋 크기 버튼 */}
+          <div className="mb-4">
+            <label className="block text-sm mb-2">프리셋 크기</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => applyPresetSize('small')}
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
+              >
+                소형 (2×2)
+              </button>
+              <button
+                onClick={() => applyPresetSize('medium')}
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
+              >
+                중형 (4×4)
+              </button>
+              <button
+                onClick={() => applyPresetSize('large')}
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
+              >
+                대형 (6×6)
+              </button>
+              <button
+                onClick={() => applyPresetSize('xlarge')}
+                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600"
+              >
+                특대형 (10×10)
+              </button>
             </div>
+          </div>
+
+          {/* 슬라이더와 직접 입력 */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm mb-1">가로 (Width)</label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="0.5"
+                value={selectedBlock.size[0]}
+                onChange={(e) => handleSizeChange(0, parseFloat(e.target.value))}
+                className="w-full mb-1"
+              />
+              <input
+                type="number"
+                min="1"
+                max="20"
+                step="0.5"
+                value={selectedBlock.size[0]}
+                onChange={(e) => handleSizeChange(0, parseFloat(e.target.value) || 1)}
+                onKeyDown={handleInputKeyDown}
+                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">높이 (Height)</label>
+              <input
+                type="range"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value={selectedBlock.size[1]}
+                onChange={(e) => handleSizeChange(1, parseFloat(e.target.value))}
+                className="w-full mb-1"
+              />
+              <input
+                type="number"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value={selectedBlock.size[1]}
+                onChange={(e) => handleSizeChange(1, parseFloat(e.target.value) || 0.1)}
+                onKeyDown={handleInputKeyDown}
+                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">세로 (Depth)</label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="0.5"
+                value={selectedBlock.size[2]}
+                onChange={(e) => handleSizeChange(2, parseFloat(e.target.value))}
+                className="w-full mb-1"
+              />
+              <input
+                type="number"
+                min="1"
+                max="20"
+                step="0.5"
+                value={selectedBlock.size[2]}
+                onChange={(e) => handleSizeChange(2, parseFloat(e.target.value) || 1)}
+                onKeyDown={handleInputKeyDown}
+                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
+              />
+            </div>
+          </div>
+
+          {/* 키보드 단축키 안내 */}
+          <div className="mt-3 p-3 bg-gray-700 rounded text-xs">
+            <div className="font-medium mb-2 text-blue-300">크기 조절 방법:</div>
+            <div className="text-gray-300 space-y-1">
+              <div>• 위 슬라이더/입력창으로 정확한 값 설정</div>
+              <div>• 3D 화면에서 선택된 블록의 흰색/녹색 핸들 드래그</div>
+              <div>• <span className="text-yellow-300">Shift + ↑/↓</span>: 높이 조절</div>
+              <div>• <span className="text-yellow-300">Shift + ←/→</span>: 가로 조절</div>
+              <div>• <span className="text-yellow-300">Ctrl + ↑/↓</span>: 세로 조절</div>
+              <div>• <span className="text-yellow-300">Shift + 마우스 휠</span>: 전체 크기</div>
+              <div>• <span className="text-yellow-300">Ctrl + 마우스 휠</span>: 높이만</div>
+            </div>
+          </div>
         </div>
-    );
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="h-full bg-gray-800 text-white p-4 overflow-y-auto">
+      <div className="mb-4 pb-2 border-b border-gray-600">
+        <h2 className="text-lg font-semibold">
+          {selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)} 속성
+        </h2>
+        <p className="text-sm text-gray-400">ID: {selectedBlock.id}</p>
+      </div>
+
+      <div className="space-y-4">
+        {renderBlockProperties()}
+        {renderResizeControls()}
+      </div>
+    </div>
+  );
 };

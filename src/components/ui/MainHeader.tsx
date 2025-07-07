@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Save, FolderOpen } from "lucide-react";
+import { useProjectStore } from "../../stores";
 
 interface MainHeaderProps {
-  projectName: string;
-  currentCSP: "AWS" | "GCP" | "Azure";
-  isSaved: boolean;
-  onProjectNameChange: (newName: string) => void;
-  onCSPChange: (csp: "AWS" | "GCP" | "Azure") => void;
-  onNewProject: () => void;
   onLoadProject: () => void;
   onSaveProject: () => void;
   userName: string;
@@ -15,14 +10,18 @@ interface MainHeaderProps {
 }
 
 const MainHeader: React.FC<MainHeaderProps> = ({
-  projectName,
-  currentCSP,
-  onProjectNameChange,
   onLoadProject,
   onSaveProject,
   userName,
   userImageUrl,
 }) => {
+  // Zustand에서 필요한 상태만 구독
+  const projectName = useProjectStore((state) => state.projectName);
+  const currentCSP = useProjectStore((state) => state.currentCSP);
+  const setProjectName = useProjectStore((state) => state.setProjectName);
+  const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
+  const newProject = useProjectStore((state) => state.newProject);
+
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState(projectName);
 
@@ -32,9 +31,17 @@ const MainHeader: React.FC<MainHeaderProps> = ({
 
   const handleNameSubmit = () => {
     if (tempName.trim() !== "" && tempName !== projectName) {
-      onProjectNameChange(tempName.trim());
+      setProjectName(tempName.trim());
     }
     setEditingName(false);
+  };
+
+  const handleCSPChange = (csp: "AWS" | "GCP" | "Azure") => {
+    setCurrentCSP(csp);
+  };
+
+  const handleNewProject = () => {
+    newProject();
   };
 
   return (
@@ -67,10 +74,16 @@ const MainHeader: React.FC<MainHeaderProps> = ({
           </h1>
         )}
 
-        {/* CSP 표시 */}
-        <div className="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-md">
-          {currentCSP}
-        </div>
+        {/* CSP 선택 */}
+        <select
+          value={currentCSP}
+          onChange={(e) => handleCSPChange(e.target.value as "AWS" | "GCP" | "Azure")}
+          className="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-md border-none outline-none cursor-pointer"
+        >
+          <option value="AWS">AWS</option>
+          <option value="GCP">GCP</option>
+          <option value="Azure">Azure</option>
+        </select>
 
         {/* 상태 표시 */}
         {/* <span className="text-green-600 text-sm font-medium ml-2">
@@ -78,21 +91,27 @@ const MainHeader: React.FC<MainHeaderProps> = ({
         </span> */}
       </div>
 
-      {/* 우측: 저장/열기 + 사용자 */}
+      {/* 우측: 새 프로젝트/저장/열기 + 사용자 */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
+          <button
+            onClick={handleNewProject}
+            className="flex items-center text-sm px-3 py-1.5 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700"
+          >
+            새 프로젝트
+          </button>
           <button
             onClick={onLoadProject}
             className="flex items-center text-sm px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
-            <FolderOpen className="w-4 h-4 mr-1" />새 프로젝트 열기
+            <FolderOpen className="w-4 h-4 mr-1" />프로젝트 열기
           </button>
           <button
             onClick={onSaveProject}
             className="flex items-center text-sm px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
             <Save className="w-4 h-4 mr-1" />
-            프로젝트 저장
+            저장
           </button>
         </div>
 

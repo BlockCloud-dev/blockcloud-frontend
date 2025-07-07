@@ -6,7 +6,7 @@ import { PropertiesPanel } from "./components/ui/PropertiesPanel";
 import { TabHeader } from "./components/ui/TabHeader";
 import { ConnectionsPanel } from "./components/ui/ConnectionsPanel";
 import { Vector3 } from "three";
-import type { DroppedBlock, Connection } from "./types/blocks";
+import type { DroppedBlock } from "./types/blocks";
 import type { ProjectData } from "./utils/projectManager";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { generateTerraformCode } from "./utils/codeGenerator";
@@ -54,7 +54,6 @@ function App() {
     setCurrentDragData,
     moveBlock,
     resizeBlock,
-    updateBlockProperties,
   } = useBlockStore();
 
   const {
@@ -73,7 +72,6 @@ function App() {
 
   const {
     activeTab,
-    generatedCode,
     setActiveTab,
     setGeneratedCode,
   } = useUIStore();
@@ -81,8 +79,6 @@ function App() {
   const {
     projectName,
     currentCSP,
-    setProjectName,
-    setCurrentCSP,
   } = useProjectStore();
 
   // 헬퍼 훅들
@@ -237,14 +233,6 @@ function App() {
       setActiveTab("code"); // 블록 삭제 시 코드 탭으로 전환
     }
     console.log("🗑️ Block deleted:", blockId);
-  };
-
-  const handleBlockPropertiesChange = (
-    blockId: string,
-    properties: Partial<DroppedBlock["properties"]>
-  ) => {
-    updateBlockProperties(blockId, properties);
-    console.log("✏️ Block properties updated:", blockId, properties);
   };
 
   const handleBlockMove = (blockId: string, newPosition: Vector3) => {
@@ -612,17 +600,6 @@ function App() {
     console.log("🔗 Connection selected:", connection.id);
   };
 
-  // 새로운 연결 관련 핸들러들
-  const handleConnectionSelect = (connection: Connection) => {
-    setSelectedConnection(connection);
-    setActiveTab("connections"); // 연결 탭으로 전환
-  };
-
-  const handleConnectionDelete = (connectionId: string) => {
-    deleteConnection(connectionId);
-    console.log("🗑️ Connection deleted:", connectionId);
-  };
-
   // 탭 변경 핸들러
   const handleTabChange = (tab: "connections" | "code" | "properties") => {
     setActiveTab(tab);
@@ -772,12 +749,6 @@ function App() {
     <div className="w-full h-screen bg-white flex flex-col overflow-hidden">
       {/* 메인 헤더 */}
       <MainHeader
-        projectName={projectName}
-        onProjectNameChange={(newName) => setProjectName(newName)}
-        currentCSP={currentCSP}
-        onCSPChange={setCurrentCSP}
-        isSaved={true}
-        onNewProject={handleNewProject}
         onLoadProject={handleQuickLoadProject}
         onSaveProject={handleSaveProject}
         userName="홍길동"
@@ -790,8 +761,6 @@ function App() {
         <ResizablePanel side="left" initialWidth={320}>
           <div className="h-full w-full bg-gray-50 px-4 py-4 overflow-auto">
             <BlockPalette
-              selectedCSP={currentCSP}
-              onCSPChange={setCurrentCSP}
               onDragStart={handlePaletteDragStart}
               onDragEnd={handlePaletteDragEnd}
             />
@@ -807,7 +776,6 @@ function App() {
             onBlockDelete={handleBlockDelete}
             onBlockMove={handleBlockMove}
             onBlockResize={handleBlockResize}
-            onBlockPropertiesChange={handleBlockPropertiesChange}
             onBlockDragStart={handleBlockDragStart}
             onBlockDragEnd={handleBlockDragEnd}
             onBlockDragUpdate={handleBlockDragUpdate}
@@ -836,34 +804,16 @@ function App() {
         {/* 오른쪽 패널 */}
         <ResizablePanel side="right" initialWidth={340}>
           <div className="h-full w-full flex flex-col overflow-hidden">
-            <TabHeader
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              connectionCount={connections.length}
-            />
+            <TabHeader />
             <div className="flex-1 overflow-y-auto">
               {activeTab === "connections" && (
-                <ConnectionsPanel
-                  connections={connections}
-                  blocks={droppedBlocks}
-                  selectedConnectionId={selectedConnection?.id}
-                  onConnectionSelect={handleConnectionSelect}
-                  onConnectionDelete={handleConnectionDelete}
-                />
+                <ConnectionsPanel />
               )}
               {activeTab === "code" && (
-                <CodeEditor key="code-editor" generatedCode={generatedCode} />
+                <CodeEditor key="code-editor" />
               )}
               {activeTab === "properties" && propertiesBlockId && (
-                <PropertiesPanel
-                  selectedBlock={
-                    droppedBlocks.find(
-                      (block) => block.id === propertiesBlockId
-                    ) || null
-                  }
-                  onPropertiesChange={handleBlockPropertiesChange}
-                  onResize={handleBlockResize}
-                />
+                <PropertiesPanel />
               )}
             </div>
           </div>

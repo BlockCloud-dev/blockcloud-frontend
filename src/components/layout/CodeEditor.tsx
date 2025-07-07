@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { Copy, Download, RotateCcw } from "lucide-react";
+import { useUIStore } from "../../stores";
 
 const defaultHCLCode = `# Terraform HCL 코드가 여기에 생성됩니다
 # 왼쪽에서 블록을 드래그해서 가운데에 배치하면 
@@ -31,10 +32,13 @@ resource "aws_vpc" "main" {
 }`;
 
 interface CodeEditorProps {
-  generatedCode?: string;
+  // props 없이 Zustand에서 직접 상태 가져오기
 }
 
-export function CodeEditor({ generatedCode }: CodeEditorProps) {
+export function CodeEditor({ }: CodeEditorProps) {
+  // Zustand에서 생성된 코드 가져오기
+  const generatedCode = useUIStore((state) => state.generatedCode);
+
   const [code, setCode] = useState(defaultHCLCode);
   const [isLoading, setIsLoading] = useState(true);
   const editorRef = useRef<any>(null);
