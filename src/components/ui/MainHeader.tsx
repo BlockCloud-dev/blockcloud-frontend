@@ -17,10 +17,7 @@ interface MainHeaderProps {
 const MainHeader: React.FC<MainHeaderProps> = ({
   projectName,
   currentCSP,
-  isSaved,
   onProjectNameChange,
-  onCSPChange,
-  onNewProject,
   onLoadProject,
   onSaveProject,
   userName,

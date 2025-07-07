@@ -1,17 +1,29 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { BlockPalette } from "./components/layout/BlockPalette";
 import { Canvas3D } from "./components/layout/Canvas3D";
 import { CodeEditor } from "./components/layout/CodeEditor";
 import { PropertiesPanel } from "./components/ui/PropertiesPanel";
 import { TabHeader } from "./components/ui/TabHeader";
 import { ConnectionsPanel } from "./components/ui/ConnectionsPanel";
-// import { ProjectManager } from "./components/ui/ProjectManager";
 import { Vector3 } from "three";
 import type { DroppedBlock, Connection } from "./types/blocks";
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import { useConnections } from "./hooks/useConnections";
-import { generateTerraformCode } from "./utils/codeGenerator";
 import type { ProjectData } from "./utils/projectManager";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { generateTerraformCode } from "./utils/codeGenerator";
+import { ResizablePanel } from "./components/ui/ResizablePanel";
+import MainHeader from "./components/ui/MainHeader";
+
+// Zustand 스토어들
+import {
+  useBlockStore,
+  useConnectionStore,
+  useUIStore,
+  useProjectStore,
+  useResetAllStores,
+  useLoadProject
+} from "./stores";
+
+// 프로젝트 관리 유틸
 import {
   saveProject,
   loadProjectFromFile,
@@ -19,32 +31,32 @@ import {
   loadProjectFromLocalStorage
 } from "./utils/projectManager";
 import { snapToGrid } from "./utils/snapGrid";
-import { analyzeEBSRole } from "./utils/ebsRoleManager";
-import { ResizablePanel } from "./components/ui/ResizablePanel";
-import MainHeader from "./components/ui/MainHeader";
 
 function App() {
-  const [droppedBlocks, setDroppedBlocks] = useState<DroppedBlock[]>([]);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [generatedCode, setGeneratedCode] = useState<string>("");
-  const [isDraggingBlock, setIsDraggingBlock] = useState<string | null>(null);
-  const [dragPosition, setDragPosition] = useState<Vector3 | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "connections" | "code" | "properties"
-  >("code");
-  const [propertiesBlockId, setPropertiesBlockId] = useState<string | null>(
-    null
-  );
-  const [currentCSP, setCurrentCSP] = useState<"AWS" | "GCP" | "Azure">("AWS");
-  const [projectName, setProjectName] = useState("MyInfraProject");
+  // Zustand 스토어에서 상태와 액션들 가져오기
+  const {
+    droppedBlocks,
+    selectedBlockId,
+    propertiesBlockId,
+    isDraggingBlock,
+    dragPosition,
+    isDropPreview,
+    previewPosition,
+    previewBlockData,
+    currentDragData,
+    addBlock,
+    deleteBlock,
+    setSelectedBlockId,
+    setPropertiesBlockId,
+    setIsDraggingBlock,
+    setDragPosition,
+    setDropPreview,
+    setCurrentDragData,
+    moveBlock,
+    resizeBlock,
+    updateBlockProperties,
+  } = useBlockStore();
 
-  // 드래그 앤 드롭 미리보기 상태
-  const [isDropPreview, setIsDropPreview] = useState(false);
-  const [previewPosition, setPreviewPosition] = useState<Vector3 | null>(null);
-  const [previewBlockData, setPreviewBlockData] = useState<any>(null);
-  const [currentDragData, setCurrentDragData] = useState<any>(null);
-
-  // 연결 시스템 훅
   const {
     connections,
     selectedConnection,
@@ -57,8 +69,25 @@ function App() {
     cancelConnecting,
     completeConnection,
     detectAndCreateStackingConnections,
-    setConnections,
-  } = useConnections();
+  } = useConnectionStore();
+
+  const {
+    activeTab,
+    generatedCode,
+    setActiveTab,
+    setGeneratedCode,
+  } = useUIStore();
+
+  const {
+    projectName,
+    currentCSP,
+    setProjectName,
+    setCurrentCSP,
+  } = useProjectStore();
+
+  // 헬퍼 훅들
+  const resetAllStores = useResetAllStores();
+  const loadProjectData = useLoadProject();
 
   // 스태킹 규칙 함수
   const canStack = (type1: string, type2: string) => {
@@ -144,86 +173,13 @@ function App() {
       newBlock.properties.volumeType = "gp2";
     }
 
-    setDroppedBlocks((prev) => [...prev, newBlock]);
+    addBlock(newBlock);
     console.log("✅ Block added to scene:", newBlock);
 
-    // 새 블록이 추가된 후 자동으로 스택킹 연결 검출 - 즉시 실행
-    // useState의 함수형 업데이트를 사용하여 최신 상태를 보장
+    // 스택킹 연결 검출
     setTimeout(() => {
-      setDroppedBlocks((currentBlocks) => {
-        const updatedBlocks = [...currentBlocks];
-        console.log(
-          "➕ [BlockAdd] Calling detectAndCreateStackingConnections with",
-          updatedBlocks.length,
-          "blocks"
-        );
-
-        // 스택킹 연결 검출 (비동기적으로 connections 상태 업데이트)
-        detectAndCreateStackingConnections(updatedBlocks);
-        console.log("➕ [BlockAdd] Stacking detection completed for new block");
-
-        // EBS 역할 분석 (새로 추가된 블록이 volume이거나 EC2일 때)
-        if (newBlock.type === "volume" || newBlock.type === "ec2") {
-          console.log(
-            "🔄 [EBS] 새 블록 추가로 인한 EBS 역할 재분석:",
-            newBlock.type
-          );
-          // connections 상태가 업데이트된 후에 실행되도록 추가 지연
-          setTimeout(() => {
-            setDroppedBlocks((blocksToUpdate) => {
-              const currentConnections = connections; // 최신 connections 상태 사용
-              const volumeBlocks = blocksToUpdate.filter(
-                (block) => block.type === "volume"
-              );
-
-              if (volumeBlocks.length === 0) {
-                console.log("🔄 [EBS] EBS 블록이 없어서 역할 분석 생략");
-                return blocksToUpdate;
-              }
-
-              console.log("🔄 [EBS] 새 블록 추가 후 EBS 역할 분석 시작:", {
-                newBlockType: newBlock.type,
-                totalBlocks: blocksToUpdate.length,
-                volumeBlocks: volumeBlocks.length,
-                connections: currentConnections.length,
-              });
-
-              const updatedBlocksWithEBS = blocksToUpdate.map((block) => {
-                if (block.type !== "volume") return block;
-
-                // EBS 역할 분석
-                const ebsAnalysis = analyzeEBSRole(
-                  block,
-                  blocksToUpdate,
-                  currentConnections
-                );
-
-                console.log(
-                  "🔄 [EBS] 블록",
-                  block.id.substring(0, 8),
-                  "역할 분석 결과:",
-                  ebsAnalysis.role
-                );
-
-                return {
-                  ...block,
-                  properties: {
-                    ...block.properties,
-                    ebsRole: ebsAnalysis.role,
-                    roleDescription: ebsAnalysis.reason,
-                  },
-                };
-              });
-
-              console.log("🔄 [EBS] 새 블록 추가 후 EBS 역할 분석 완료");
-              return updatedBlocksWithEBS;
-            });
-          }, 50); // connections 상태 업데이트 후 실행
-        }
-
-        return updatedBlocks; // 블록 상태는 변경하지 않음
-      });
-    }, 50); // 더 빠른 응답을 위해 지연 시간 단축
+      detectAndCreateStackingConnections(droppedBlocks);
+    }, 50);
 
     console.log("📊 Total blocks:", droppedBlocks.length + 1);
 
@@ -274,7 +230,7 @@ function App() {
     // 블록과 관련된 모든 연결 삭제
     deleteConnectionsForBlock(blockId);
 
-    setDroppedBlocks((prev) => prev.filter((block) => block.id !== blockId));
+    deleteBlock(blockId);
     if (selectedBlockId === blockId) {
       setSelectedBlockId(null);
       setPropertiesBlockId(null);
@@ -287,17 +243,7 @@ function App() {
     blockId: string,
     properties: Partial<DroppedBlock["properties"]>
   ) => {
-    setDroppedBlocks((prev) =>
-      prev.map((block) =>
-        block.id === blockId
-          ? {
-            ...block,
-            properties: { ...block.properties, ...properties },
-            timestamp: Date.now(), // 수정 시간 업데이트
-          }
-          : block
-      )
-    );
+    updateBlockProperties(blockId, properties);
     console.log("✏️ Block properties updated:", blockId, properties);
   };
 
@@ -587,96 +533,35 @@ function App() {
       finalPosition
     );
 
-    // 즉시 상태 업데이트 (동기적 처리)
-    const updatedBlocks = droppedBlocks.map((block) =>
-      block.id === blockId
-        ? { ...block, position: finalPosition, timestamp: Date.now() }
-        : block
-    );
-
     console.log(
       "🎯 [APP_MOVE] Updating block state with final position:",
       finalPosition
     );
 
-    setDroppedBlocks(updatedBlocks);
+    moveBlock(blockId, finalPosition);
 
     // 드래그 종료 시 상태 초기화
     setIsDraggingBlock(null);
     setDragPosition(null);
 
-    // 블록 이동 후 자동으로 스택킹 연결 검출 - 즉시 실행
-    // useState의 함수형 업데이트를 사용하여 최신 connections 상태를 보장
+    // 블록 이동 후 자동으로 스택킹 연결 검출
     setTimeout(() => {
       console.log(
         "🔄 [BlockMove] Calling detectAndCreateStackingConnections with",
-        updatedBlocks.length,
+        droppedBlocks.length,
         "blocks"
       );
-      // 스택킹 연결 검출 (비동기적으로 connections 상태 업데이트)
-      detectAndCreateStackingConnections(updatedBlocks);
+      detectAndCreateStackingConnections(droppedBlocks);
       console.log(
         "🔄 [BlockMove] Stacking detection completed after block move"
       );
 
       // EBS 역할 재분석 (volume 블록이 이동되었거나 EC2 블록이 이동되었을 때)
+      // TODO: EBS 역할 분석 로직을 blockStore로 이전
       if (movingBlock.type === "volume" || movingBlock.type === "ec2") {
         console.log(
-          "🔄 [EBS] EBS 역할 재분석 중... (",
-          movingBlock.type,
-          "블록 이동으로 인해)"
+          "🔄 [EBS] EBS 역할 재분석 필요하지만 임시로 비활성화 - blockStore로 이전 예정"
         );
-        // 현재 connections 상태를 사용하여 EBS 역할 재분석
-        // connections 상태가 업데이트된 후에 실행되도록 추가 지연
-        setTimeout(() => {
-          setDroppedBlocks((currentBlocks) => {
-            const currentConnections = connections; // 최신 connections 상태 사용
-            const volumeBlocks = currentBlocks.filter(
-              (block) => block.type === "volume"
-            );
-
-            if (volumeBlocks.length === 0) {
-              console.log("🔄 [EBS] EBS 블록이 없어서 역할 분석 생략");
-              return currentBlocks;
-            }
-
-            console.log("🔄 [EBS] EBS 역할 재분석 시작:", {
-              totalBlocks: currentBlocks.length,
-              volumeBlocks: volumeBlocks.length,
-              connections: currentConnections.length,
-            });
-
-            const updatedBlocksWithEBS = currentBlocks.map((block) => {
-              if (block.type !== "volume") return block;
-
-              // EBS 역할 분석
-              const ebsAnalysis = analyzeEBSRole(
-                block,
-                currentBlocks,
-                currentConnections
-              );
-
-              console.log(
-                "🔄 [EBS] 블록",
-                block.id.substring(0, 8),
-                "역할 분석 결과:",
-                ebsAnalysis.role
-              );
-
-              return {
-                ...block,
-                properties: {
-                  ...block.properties,
-                  ebsRole: ebsAnalysis.role,
-                  roleDescription: ebsAnalysis.reason,
-                },
-              };
-            });
-
-            console.log("🔄 [EBS] EBS 역할 재분석 완료");
-            return updatedBlocksWithEBS;
-          });
-        }, 50); // connections 상태 업데이트 후 실행
       }
     }, 30); // 더 빠른 응답을 위해 지연 시간 단축
 
@@ -705,19 +590,13 @@ function App() {
     blockId: string,
     newSize: [number, number, number]
   ) => {
-    setDroppedBlocks((prev) =>
-      prev.map((block) =>
-        block.id === blockId
-          ? { ...block, size: newSize, timestamp: Date.now() }
-          : block
-      )
-    );
+    resizeBlock(blockId, newSize);
     console.log("📏 Block resized:", blockId, newSize);
   };
 
   // 연결 관련 핸들러들
   const handleConnectionComplete = (toBlockId: string) => {
-    const success = completeConnection(toBlockId, droppedBlocks);
+    const success = completeConnection(toBlockId);
     if (success) {
       console.log("🔗 Connection created");
     } else {
@@ -751,9 +630,7 @@ function App() {
 
   // 프로젝트 관리 핸들러
   const handleLoadProject = (projectData: ProjectData) => {
-    setDroppedBlocks(projectData.blocks);
-    setConnections(projectData.connections);
-    setProjectName(projectData.name);
+    loadProjectData(projectData);
     console.log(
       "🔄 Project loaded:",
       projectData.name,
@@ -763,16 +640,10 @@ function App() {
       projectData.connections.length,
       "connections"
     );
-    setSelectedBlockId(null);
-    setPropertiesBlockId(null);
   };
 
   const handleNewProject = () => {
-    setDroppedBlocks([]);
-    setConnections([]);
-    setSelectedBlockId(null);
-    setPropertiesBlockId(null);
-    setProjectName("MyInfraProject");
+    resetAllStores();
     console.log("🆕 New project created");
   };
 
@@ -869,16 +740,12 @@ function App() {
   // 드래그 미리보기 핸들러 함수들
   const handleDragPreview = (position: Vector3, blockData: any) => {
     console.log("📱 App handleDragPreview called:", position, blockData);
-    setIsDropPreview(true);
-    setPreviewPosition(position);
-    setPreviewBlockData(blockData);
+    setDropPreview(true, position, blockData);
   };
 
   const handleDragPreviewEnd = () => {
     console.log("📱 App handleDragPreviewEnd called");
-    setIsDropPreview(false);
-    setPreviewPosition(null);
-    setPreviewBlockData(null);
+    setDropPreview(false);
   };
 
   // 팔레트 드래그 핸들러

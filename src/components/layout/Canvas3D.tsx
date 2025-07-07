@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Stats } from "@react-three/drei";
+import { OrbitControls, Grid } from "@react-three/drei";
 import { Vector3 } from "three";
 import { BaseBlock } from "../blocks/BaseBlock";
 import { Road } from "../blocks/Road";
@@ -526,7 +526,7 @@ export function Canvas3D({
       for (const existingSubnet of existingSubnets) {
         const distance = Math.sqrt(
           Math.pow(candidateX - existingSubnet.position.x, 2) +
-            Math.pow(candidateZ - existingSubnet.position.z, 2)
+          Math.pow(candidateZ - existingSubnet.position.z, 2)
         );
 
         if (distance < minDistance) {
@@ -717,9 +717,9 @@ export function Canvas3D({
                 block.type === "subnet" &&
                 Math.abs(
                   block.position.y -
-                    (vpcInStack.position.y +
-                      getBlockHeight("vpc", vpcInStack.size) / 2 +
-                      getBlockHeight("subnet", blockSize) / 2)
+                  (vpcInStack.position.y +
+                    getBlockHeight("vpc", vpcInStack.size) / 2 +
+                    getBlockHeight("subnet", blockSize) / 2)
                 ) < 0.1
             );
 
@@ -1047,9 +1047,9 @@ export function Canvas3D({
             (otherBlock) =>
               otherBlock.id !== block.id &&
               Math.round(otherBlock.position.x / snapSize) * snapSize ===
-                Math.round(block.position.x / snapSize) * snapSize &&
+              Math.round(block.position.x / snapSize) * snapSize &&
               Math.round(otherBlock.position.z / snapSize) * snapSize ===
-                Math.round(block.position.z / snapSize) * snapSize
+              Math.round(block.position.z / snapSize) * snapSize
           );
 
           const isStacked = blocksAtSamePosition.length > 0;
@@ -1216,7 +1216,7 @@ export function Canvas3D({
               (block) =>
                 block.id !== isDraggingBlock &&
                 Math.round(block.position.x / snapSize) * snapSize ===
-                  snappedX &&
+                snappedX &&
                 Math.round(block.position.z / snapSize) * snapSize === snappedZ
             );
 
@@ -1420,7 +1420,7 @@ export function Canvas3D({
                   const newY =
                     blockHeight / 2 +
                     (previewBlockData.id === "vpc" ||
-                    previewBlockData.id === "subnet"
+                      previewBlockData.id === "subnet"
                       ? 0
                       : 0.1);
                   finalPreviewPosition = new Vector3(snappedX, newY, snappedZ);
@@ -1433,7 +1433,7 @@ export function Canvas3D({
                   // 기존 블록들 사이/위에 배치
                   const lowerBlock =
                     stackValidation.sortedStack[
-                      stackValidation.insertIndex - 1
+                    stackValidation.insertIndex - 1
                     ];
                   const lowerBlockHeight = getBlockHeight(
                     lowerBlock.type,
@@ -1537,9 +1537,7 @@ export function Canvas3D({
             return (
               <DragPreview
                 position={finalPreviewPosition}
-                blockType={previewBlockData.id}
                 blockSize={blockSize}
-                color={blockColor}
                 isValidPosition={isValidPosition}
                 canStack={canStackBlocks}
                 targetBlocks={targetBlocks}
