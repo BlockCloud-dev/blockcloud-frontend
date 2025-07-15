@@ -3,12 +3,14 @@ export { useBlockStore } from './blockStore';
 export { useConnectionStore } from './connectionStore';
 export { useUIStore } from './uiStore';
 export { useProjectStore } from './projectStore';
+export { useAuthStore, useAuth } from './authStore';
 
 // 스토어들을 함께 사용하는 헬퍼 훅들
 import { useBlockStore } from './blockStore';
 import { useConnectionStore } from './connectionStore';
 import { useUIStore } from './uiStore';
 import { useProjectStore } from './projectStore';
+import { useAuthStore } from './authStore';
 
 // 모든 상태를 초기화하는 헬퍼
 export const useResetAllStores = () => {
@@ -17,6 +19,7 @@ export const useResetAllStores = () => {
   const newProject = useProjectStore((state) => state.newProject);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const setGeneratedCode = useUIStore((state) => state.setGeneratedCode);
+  const logout = useAuthStore((state) => state.logout);
 
   return () => {
     clearBlocks();
@@ -24,6 +27,7 @@ export const useResetAllStores = () => {
     newProject();
     setActiveTab('code');
     setGeneratedCode('');
+    // 인증 상태는 별도로 관리 (자동 로그아웃하지 않음)
   };
 };
 
