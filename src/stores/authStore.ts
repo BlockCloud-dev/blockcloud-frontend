@@ -5,10 +5,13 @@ import { AuthService, TokenStorage } from '../services/authService';
 
 interface AuthActions {
   // 로그인 관련
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => void; // Promise 제거, 즉시 리다이렉트
   loginWithEmail: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   signOut: () => Promise<void>;
+
+  // OAuth2 콜백 처리
+  handleOAuthCallback: (accessToken: string, user: User) => Promise<void>;
 
   // 토큰 관리
   refreshAccessToken: () => Promise<boolean>;
@@ -42,50 +45,47 @@ export const useAuthStore = create<AuthStore>()(
       isLoading: false,
       error: null,
 
-      // Google OAuth 로그인
-      loginWithGoogle: async () => {
-        set({ isLoading: true, error: null });
+      // Google OAuth 로그인 (실제 OAuth2 리다이렉트)
+      loginWithGoogle: () => {
+        console.log('🔄 Google OAuth2 로그인 시작...');
+
+        // 에러 상태 클리어
+        set({ error: null });
+
+        // 실제 OAuth2 엔드포인트로 리다이렉트
+        const oauthUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/oauth2/authorization/google`;
+
+        console.log('🌐 OAuth2 URL로 리다이렉트:', oauthUrl);
+        window.location.href = oauthUrl;
+      },
+
+      // OAuth2 콜백 처리 (LoginSuccessPage에서 호출)
+      handleOAuthCallback: async (accessToken: string, user: User) => {
+        console.log('🔄 OAuth2 콜백 처리 시작:', {
+          tokenLength: accessToken.length,
+          userName: user.name,
+          userEmail: user.email
+        });
 
         try {
-          // Phase 2에서는 임시 구현, Phase 3에서 실제 OAuth 구현
-          console.log('Google OAuth 로그인 시작...');
-
-          // 임시 사용자 데이터 (실제로는 백엔드에서 받아옴)
-          const mockUser: User = {
-            id: 'google-user-1',
-            email: 'user@gmail.com',
-            name: '구글 사용자',
-            profileImageUrl: 'https://via.placeholder.com/64',
-            provider: 'google',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          const mockTokens = {
-            accessToken: 'mock-access-token-google',
-            refreshToken: 'mock-refresh-token-google',
-          };
-
           // 토큰과 사용자 정보 저장
-          TokenStorage.saveTokens(mockTokens.accessToken, mockTokens.refreshToken);
-          TokenStorage.saveUser(mockUser);
+          TokenStorage.saveTokens(accessToken, ''); // Refresh Token은 쿠키로 관리
+          TokenStorage.saveUser(user);
 
+          // 상태 업데이트
           set({
             isAuthenticated: true,
-            user: mockUser,
-            accessToken: mockTokens.accessToken,
-            refreshToken: mockTokens.refreshToken,
+            user: user,
+            accessToken: accessToken,
+            refreshToken: null, // 쿠키로 관리되므로 null
             isLoading: false,
             error: null,
           });
 
-          console.log('✅ Google 로그인 성공');
+          console.log('✅ OAuth2 콜백 처리 성공');
         } catch (error) {
-          console.error('❌ Google 로그인 실패:', error);
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Google 로그인 실패',
-          });
+          console.error('❌ OAuth2 콜백 처리 실패:', error);
+          throw error; // LoginSuccessPage에서 처리하도록 에러 전파
         }
       },
 
@@ -309,6 +309,9 @@ export const useAuth = () => {
     logout: store.logout,
     signOut: store.signOut,
     clearError: store.clearError,
+
+    // OAuth2 콜백 처리
+    handleOAuthCallback: store.handleOAuthCallback,
 
     // 유틸리티
     isAdmin: store.user?.email === 'admin@blockcloud.dev',

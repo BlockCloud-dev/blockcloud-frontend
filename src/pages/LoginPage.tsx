@@ -15,14 +15,9 @@ const LoginPage: React.FC = () => {
     password: 'test123'
   });
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     clearError();
-    try {
-      await loginWithGoogle();
-      navigate(redirectPath);
-    } catch (error) {
-      console.error('Google 로그인 실패:', error);
-    }
+    loginWithGoogle();
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {

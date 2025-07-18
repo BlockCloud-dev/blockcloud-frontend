@@ -5,6 +5,7 @@ import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 // 페이지 컴포넌트들
 import HomePage from '../pages/HomePage';
 import LoginPage from '../pages/LoginPage';
+import LoginSuccessPage from '../pages/LoginSuccessPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProjectEditorPage from '../pages/ProjectEditorPage';
 
@@ -24,6 +25,10 @@ const routes: RouteObject[] = [
         <LoginPage />
       </GuestRoute>
     ),
+  },
+  {
+    path: ROUTES.LOGIN_SUCCESS,
+    element: <LoginSuccessPage />,
   },
   {
     path: ROUTES.DASHBOARD,
