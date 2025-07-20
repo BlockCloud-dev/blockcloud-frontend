@@ -36,13 +36,22 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.0"
+      version = "~> 5.0"  # 최신 버전 사용
     }
   }
 }
 
 provider "aws" {
   region = "ap-northeast-2"
+  
+  default_tags {
+    tags = {
+      Project     = "BlockCloud"
+      CreatedBy   = "terraform"
+      Environment = "development"
+      ManagedBy   = "lego-builder"
+    }
+  }
 }
 `;
   }
@@ -56,13 +65,22 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.0"
+      version = "~> 5.0"  # 최신 버전 사용
     }
   }
 }
 
 provider "aws" {
   region = "ap-northeast-2"
+  
+  default_tags {
+    tags = {
+      Project     = "BlockCloud"
+      CreatedBy   = "terraform"
+      Environment = "development"
+      ManagedBy   = "lego-builder"
+    }
+  }
 }
 
 `;
@@ -84,6 +102,8 @@ provider "aws" {
 
   tags = {
     Name = "${vpc.properties.name}"
+    ResourceType = "Network"
+    Tier = "Foundation"
   }
 }
 
@@ -137,6 +157,9 @@ provider "aws" {
 
   tags = {
     Name = "${subnet.properties.name}"
+    ResourceType = "Network"
+    Tier = "Subnet"
+    AZ = "${subnet.properties.availabilityZone || "ap-northeast-2a"}"
   }
 }
 
@@ -202,6 +225,9 @@ provider "aws" {
 
   tags = {
     Name = "${ec2.properties.name}"
+    ResourceType = "Compute"
+    InstanceType = "${ec2.properties.instanceType || "t2.micro"}"
+    Purpose = "Application"
   }
 }
 
