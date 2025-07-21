@@ -53,6 +53,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
   const handleSizeChange = (index: number, value: number) => {
     if (!selectedBlock.size) return;
 
+    // 높이(index 1) 조절 막기
+    if (index === 1) {
+      console.log("높이 조절은 제한됩니다.");
+      return;
+    }
+
     const newSize: [number, number, number] = [...selectedBlock.size];
     newSize[index] = value;
     handleResize(selectedBlock.id, newSize);
@@ -335,13 +341,16 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
     }
   };
 
-  // 프리셋 크기 적용
+  // 프리셋 크기 적용 (높이는 현재 높이 유지)
   const applyPresetSize = (preset: 'small' | 'medium' | 'large' | 'xlarge') => {
+    if (!selectedBlock.size) return;
+
+    const currentHeight = selectedBlock.size[1]; // 현재 높이 유지
     const presets = {
-      small: [2, 0.2, 2] as [number, number, number],
-      medium: [4, 0.3, 4] as [number, number, number],
-      large: [6, 0.4, 6] as [number, number, number],
-      xlarge: [10, 0.5, 10] as [number, number, number]
+      small: [2, currentHeight, 2] as [number, number, number],
+      medium: [4, currentHeight, 4] as [number, number, number],
+      large: [6, currentHeight, 6] as [number, number, number],
+      xlarge: [10, currentHeight, 10] as [number, number, number]
     };
     handleResize(selectedBlock.id, presets[preset]);
   };
@@ -409,15 +418,15 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
               />
             </div>
             <div>
-              <label className="block text-sm mb-1">높이 (Height)</label>
+              <label className="block text-sm mb-1">높이 (Height) - 고정됨</label>
               <input
                 type="range"
                 min="0.1"
                 max="2"
                 step="0.1"
                 value={selectedBlock.size[1]}
-                onChange={(e) => handleSizeChange(1, parseFloat(e.target.value))}
-                className="w-full mb-1"
+                disabled
+                className="w-full mb-1 opacity-50 cursor-not-allowed"
               />
               <input
                 type="number"
@@ -425,10 +434,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
                 max="2"
                 step="0.1"
                 value={selectedBlock.size[1]}
-                onChange={(e) => handleSizeChange(1, parseFloat(e.target.value) || 0.1)}
+                disabled
                 onKeyDown={handleInputKeyDown}
-                className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-xs"
+                className="w-full px-2 py-1 bg-gray-600 rounded border border-gray-500 text-gray-400 text-xs cursor-not-allowed"
               />
+              <div className="text-xs text-gray-400 mt-1">높이는 고정값입니다</div>
             </div>
             <div>
               <label className="block text-sm mb-1">세로 (Depth)</label>
@@ -460,11 +470,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
             <div className="text-gray-300 space-y-1">
               <div>• 위 슬라이더/입력창으로 정확한 값 설정</div>
               <div>• 3D 화면에서 선택된 블록의 흰색/녹색 핸들 드래그</div>
-              <div>• <span className="text-yellow-300">Shift + ↑/↓</span>: 높이 조절</div>
+              <div>• <span className="text-red-300">높이는 고정됨</span> (조절 불가)</div>
               <div>• <span className="text-yellow-300">Shift + ←/→</span>: 가로 조절</div>
               <div>• <span className="text-yellow-300">Ctrl + ↑/↓</span>: 세로 조절</div>
-              <div>• <span className="text-yellow-300">Shift + 마우스 휠</span>: 전체 크기</div>
-              <div>• <span className="text-yellow-300">Ctrl + 마우스 휠</span>: 높이만</div>
             </div>
           </div>
         </div>

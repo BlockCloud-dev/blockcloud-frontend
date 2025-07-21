@@ -125,8 +125,8 @@ export function BlockPalette({
           <button
             key={csp}
             className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${selectedCSP === csp
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-600"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200 text-gray-600"
               }`}
             onClick={() => setCurrentCSP(csp as "AWS" | "GCP" | "Azure")}
           >
@@ -141,8 +141,8 @@ export function BlockPalette({
           <button
             key={cat}
             className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${selectedCategory === cat
-                ? "bg-blue-100 text-blue-700 border border-blue-400"
-                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+              ? "bg-blue-100 text-blue-700 border border-blue-400"
+              : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
               }`}
             onClick={() => setSelectedCategory(cat)}
           >
@@ -188,8 +188,9 @@ export function BlockPalette({
                 key={block.id}
                 draggable
                 onDragStart={(e) => {
+                  console.log("🚀 [BlockPalette] Drag started for block:", block);
                   e.dataTransfer.setData(
-                    "application/json",
+                    "text/plain",
                     JSON.stringify(block)
                   );
                   onDragStart?.(block);

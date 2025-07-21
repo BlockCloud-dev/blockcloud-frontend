@@ -10,7 +10,6 @@ import { useBlockStore } from './blockStore';
 import { useConnectionStore } from './connectionStore';
 import { useUIStore } from './uiStore';
 import { useProjectStore } from './projectStore';
-import { useAuthStore } from './authStore';
 
 // 모든 상태를 초기화하는 헬퍼
 export const useResetAllStores = () => {
@@ -19,7 +18,6 @@ export const useResetAllStores = () => {
   const newProject = useProjectStore((state) => state.newProject);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const setGeneratedCode = useUIStore((state) => state.setGeneratedCode);
-  const logout = useAuthStore((state) => state.logout);
 
   return () => {
     clearBlocks();

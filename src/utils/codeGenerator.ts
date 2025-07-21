@@ -93,12 +93,10 @@ provider "aws" {
       const vpcId = vpc.id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
       code += `resource "aws_vpc" "${vpcId}" {
   cidr_block           = "${vpc.properties.cidrBlock || "10.0.0.0/16"}"
-  enable_dns_support   = ${
-    vpc.properties.enableDnsSupport !== false ? "true" : "false"
-  }
-  enable_dns_hostnames = ${
-    vpc.properties.enableDnsHostnames !== false ? "true" : "false"
-  }
+  enable_dns_support   = ${vpc.properties.enableDnsSupport !== false ? "true" : "false"
+        }
+  enable_dns_hostnames = ${vpc.properties.enableDnsHostnames !== false ? "true" : "false"
+        }
 
   tags = {
     Name = "${vpc.properties.name}"
@@ -125,7 +123,7 @@ provider "aws" {
 
       const vpcConnection = connections.find(
         (conn) =>
-          conn.fromBlockId === subnet.id && conn.connectionType === "subnet-vpc"
+          conn.fromBlockId === subnet.id && conn.connectionType === "vpc-subnet"
       );
 
       console.log("🔍 [Subnet] VPC connection found:", vpcConnection);
@@ -151,9 +149,8 @@ provider "aws" {
       code += `resource "aws_subnet" "${subnetId}" {
   vpc_id            = ${vpcRef}
   cidr_block        = "${subnet.properties.cidrBlock || "10.0.1.0/24"}"
-  availability_zone = "${
-    subnet.properties.availabilityZone || "ap-northeast-2a"
-  }"
+  availability_zone = "${subnet.properties.availabilityZone || "ap-northeast-2a"
+        }"
 
   tags = {
     Name = "${subnet.properties.name}"
@@ -176,7 +173,7 @@ provider "aws" {
       let subnetRef = '"subnet-12345"';
       const subnetConnection = connections.find(
         (conn) =>
-          conn.fromBlockId === ec2.id && conn.connectionType === "ec2-subnet"
+          conn.fromBlockId === ec2.id && conn.connectionType === "subnet-ec2"
       );
 
       if (subnetConnection) {
@@ -211,10 +208,47 @@ provider "aws" {
         }
       });
 
+      // 연결된 부트 볼륨 찾기 (스택킹 연결)
+      const bootVolumeConnections = connections.filter(
+        (conn) =>
+          (conn.fromBlockId === ec2.id || conn.toBlockId === ec2.id) &&
+          (
+            // 스택킹 연결이거나 부트 볼륨 전용 연결 타입
+            conn.properties?.stackConnection === true ||
+            conn.connectionType === "ebs-ec2-boot" ||
+            conn.connectionType === "volume-ec2-boot" ||
+            conn.properties?.volumeType === "boot"
+          )
+      );
+
       code += `resource "aws_instance" "${ec2Id}" {
   ami           = "${ec2.properties.ami || "ami-12345678"}"
   instance_type = "${ec2.properties.instanceType || "t2.micro"}"
   subnet_id     = ${subnetRef}`;
+
+      // 부트 볼륨이 연결되어 있으면 root_block_device 설정
+      if (bootVolumeConnections.length > 0) {
+        const bootVolumeConn = bootVolumeConnections[0];
+        const bootVolumeId = bootVolumeConn.fromBlockId === ec2.id
+          ? bootVolumeConn.toBlockId
+          : bootVolumeConn.fromBlockId;
+
+        const bootVolume = blocks.find(block => block.id === bootVolumeId);
+
+        if (bootVolume) {
+          code += `
+
+  root_block_device {
+    volume_type           = "${bootVolume.properties.volumeType || "gp2"}"
+    volume_size           = ${bootVolume.properties.volumeSize || 8}
+    delete_on_termination = true
+    
+    tags = {
+      Name = "${bootVolume.properties.name} (부트 볼륨)"
+    }
+  }`;
+        }
+      }
 
       if (securityGroupRefs.length > 0) {
         code += `
@@ -251,7 +285,7 @@ provider "aws" {
       const subnetConnection = connections.find(
         (conn) =>
           conn.fromBlockId === sg.id &&
-          conn.connectionType === "security-group-subnet"
+          conn.connectionType === "subnet-security-group"
       );
 
       if (subnetConnection) {
@@ -263,7 +297,7 @@ provider "aws" {
           const subnetVpcConnection = connections.find(
             (conn) =>
               conn.fromBlockId === connectedSubnet.id &&
-              conn.connectionType === "subnet-vpc"
+              conn.connectionType === "vpc-subnet"
           );
           if (subnetVpcConnection) {
             const connectedVpc = blocks.find(
@@ -356,7 +390,7 @@ provider "aws" {
       const subnetConnections = connections.filter(
         (conn) =>
           conn.fromBlockId === lb.id &&
-          conn.connectionType === "load-balancer-subnet"
+          conn.connectionType === "subnet-load-balancer"
       );
 
       let subnetRefs: string[] = [];
@@ -448,11 +482,10 @@ provider "aws" {
   name     = "${lb.properties.name}-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = ${
-    vpcs.length > 0
-      ? `aws_vpc.${vpcs[0].id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase()}.id`
-      : '"vpc-12345"'
-  }
+  vpc_id   = ${vpcs.length > 0
+            ? `aws_vpc.${vpcs[0].id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase()}.id`
+            : '"vpc-12345"'
+          }
 
   health_check {
     enabled             = true
@@ -509,26 +542,14 @@ provider "aws" {
     });
   }
 
-  // EBS 볼륨 생성
+  // EBS 볼륨 생성 (부트 볼륨 제외)
   const volumes = blocks.filter((block) => block.type === "volume");
   if (volumes.length > 0) {
-    code += `# EBS 볼륨 리소스\n`;
+    code += `# EBS 볼륨 리소스 (추가 볼륨만)\n`;
     volumes.forEach((volume) => {
       const volumeId = volume.id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
 
-      code += `resource "aws_ebs_volume" "${volumeId}" {
-  availability_zone = "ap-northeast-2a"
-  size              = ${volume.properties.volumeSize || 8}
-  type              = "${volume.properties.volumeType || "gp2"}"
-
-  tags = {
-    Name = "${volume.properties.name}"
-  }
-}
-
-`;
-
-      // 연결된 EC2 인스턴스 찾기 (연결 정보만 사용) - 양방향 연결 확인
+      // 연결된 EC2 인스턴스 찾기 - 모든 볼륨 관련 연결 타입 지원
       console.log(
         "🔧 [EBS] Looking for EC2 connections for volume:",
         volume.id
@@ -536,12 +557,53 @@ provider "aws" {
 
       const volumeConnection = connections.find(
         (conn) =>
-          (conn.fromBlockId === volume.id &&
-            conn.connectionType === "volume-ec2") ||
-          (conn.toBlockId === volume.id && conn.connectionType === "ec2-volume")
+          // 기존 volume-ec2 연결 (양방향)
+          (conn.fromBlockId === volume.id && conn.connectionType === "volume-ec2") ||
+          (conn.toBlockId === volume.id && conn.connectionType === "ec2-volume") ||
+          // 새로운 EBS 연결 타입들
+          (conn.fromBlockId === volume.id && conn.connectionType === "ebs-ec2-boot") ||
+          (conn.fromBlockId === volume.id && conn.connectionType === "ebs-ec2-block") ||
+          (conn.toBlockId === volume.id && conn.connectionType === "ebs-ec2-boot") ||
+          (conn.toBlockId === volume.id && conn.connectionType === "ebs-ec2-block") ||
+          // volume-ec2-boot 연결
+          (conn.fromBlockId === volume.id && conn.connectionType === "volume-ec2-boot") ||
+          (conn.toBlockId === volume.id && conn.connectionType === "volume-ec2-boot")
       );
 
       console.log("🔧 [EBS] Volume connection found:", volumeConnection);
+
+      // 부트 볼륨 여부 확인
+      const isBootVolume = volumeConnection &&
+        (
+          // 스택킹 연결인 경우 (stackConnection 속성)
+          volumeConnection.properties?.stackConnection === true ||
+          // 부트 볼륨 타입인 경우
+          volumeConnection.properties?.volumeType === "boot" ||
+          // 부트 볼륨 전용 연결 타입들
+          volumeConnection.connectionType === "ebs-ec2-boot" ||
+          volumeConnection.connectionType === "volume-ec2-boot"
+        );
+
+      // 부트 볼륨인 경우 EBS 리소스를 생성하지 않음 (EC2의 root_block_device로 처리됨)
+      if (isBootVolume) {
+        console.log("🔧 [EBS] Skipping boot volume EBS resource creation for:", volume.id);
+        code += `# 부트 볼륨 "${volume.properties.name}"는 EC2 인스턴스의 root_block_device로 통합됨\n\n`;
+        return;
+      }
+
+      // 추가 볼륨인 경우만 EBS 리소스 생성
+      code += `resource "aws_ebs_volume" "${volumeId}" {
+  availability_zone = "ap-northeast-2a"
+  size              = ${volume.properties.volumeSize || 8}
+  type              = "${volume.properties.volumeType || "gp2"}"
+
+  tags = {
+    Name = "${volume.properties.name}"
+    VolumeType = "Additional"
+  }
+}
+
+`;
 
       if (volumeConnection) {
         // 연결된 EC2 찾기 (연결 방향에 따라 다름)
@@ -559,12 +621,18 @@ provider "aws" {
             .replace(/[^a-zA-Z0-9_]/g, "_")
             .toLowerCase();
 
-          // 연결 속성에 따라 디바이스 이름과 설명 결정
+          // 연결 속성과 연결 타입에 따라 부트 볼륨 여부 결정
           const isBootVolume =
+            // 스택킹 연결인 경우 (stackConnection 속성)
+            volumeConnection.properties?.stackConnection === true ||
+            // 부트 볼륨 타입인 경우
             volumeConnection.properties?.volumeType === "boot" ||
-            volumeConnection.properties?.stackConnection === true;
+            // 부트 볼륨 전용 연결 타입들
+            volumeConnection.connectionType === "ebs-ec2-boot" ||
+            volumeConnection.connectionType === "volume-ec2-boot";
+
           const deviceName = isBootVolume ? '"/dev/sda1"' : '"/dev/sdf"';
-          const description = isBootVolume ? "부트 볼륨" : "추가 블록 스토리지";
+          const description = isBootVolume ? "부트 볼륨 (스택킹)" : "추가 블록 스토리지";
 
           console.log("🔧 [EBS] Volume attachment details:", {
             ec2Id,
@@ -573,9 +641,18 @@ provider "aws" {
             description,
             connectionType: volumeConnection.connectionType,
             properties: volumeConnection.properties,
+            stackConnection: volumeConnection.properties?.stackConnection
           });
 
-          code += `# ${description} 연결 - ${attachedEC2.properties.name} ↔ ${volume.properties.name}
+          // 부트 볼륨인 경우 EC2 인스턴스 블록에 직접 포함
+          if (isBootVolume) {
+            code += `# ${description} - EC2 인스턴스에 통합됨
+# 볼륨 ID: ${volume.properties.name} → EC2: ${attachedEC2.properties.name}
+
+`;
+          } else {
+            // 추가 볼륨인 경우 별도 attachment 리소스 생성
+            code += `# ${description} 연결 - ${attachedEC2.properties.name} ↔ ${volume.properties.name}
 resource "aws_volume_attachment" "${volumeId}_attachment" {
   device_name = ${deviceName}
   volume_id   = aws_ebs_volume.${volumeId}.id
@@ -583,6 +660,7 @@ resource "aws_volume_attachment" "${volumeId}_attachment" {
 }
 
 `;
+          }
         }
       } else {
         console.log("🔧 [EBS] No EC2 connection found for volume:", volume.id);
@@ -614,14 +692,24 @@ resource "aws_volume_attachment" "${volumeId}_attachment" {
 // 연결 타입의 한글 라벨을 반환하는 헬퍼 함수
 function getConnectionTypeLabel(connectionType: string): string {
   const labels: Record<string, string> = {
+    // 기존 연결 타입들
     "ec2-security-group": "EC2 ↔ 보안그룹",
     "ec2-subnet": "EC2 ↔ 서브넷",
     "ec2-volume": "EC2 ↔ EBS볼륨",
     "load-balancer-ec2": "로드밸런서 ↔ EC2",
     "load-balancer-security-group": "로드밸런서 ↔ 보안그룹",
-    "load-balancer-subnet": "로드밸런서 ↔ 서브넷",
-    "security-group-subnet": "보안그룹 ↔ 서브넷",
-    "subnet-vpc": "서브넷 ↔ VPC",
+    "subnet-load-balancer": "서브넷 ↔ 로드밸런서",
+    "subnet-security-group": "서브넷 ↔ 보안그룹",
+    "vpc-subnet": "VPC ↔ 서브넷",
+    // AWS 계층적 아키텍처 연결 타입들
+    "subnet-ebs": "서브넷 ↔ EBS",
+    "subnet-volume": "서브넷 ↔ 볼륨",
+    "subnet-ec2": "서브넷 ↔ EC2",
+    // EBS 스택킹 연결 타입들
+    "ebs-ec2-boot": "EBS ↔ EC2 (부트 볼륨/스택킹)",
+    "ebs-ec2-block": "EBS ↔ EC2 (블록 볼륨/도로)",
+    "volume-ec2": "볼륨 ↔ EC2",
+    "volume-ec2-boot": "볼륨 ↔ EC2 (부트 볼륨/스택킹)",
   };
   return labels[connectionType] || connectionType;
 }
