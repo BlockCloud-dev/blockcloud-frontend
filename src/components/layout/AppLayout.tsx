@@ -17,7 +17,7 @@ const AppLayout: React.FC = () => {
   // 로그아웃 핸들러
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    const toastId = toast.loading("로그아웃 중입니다…");
+    const toastId = toast.loading("로그아웃 중입니다.");
     try {
       await logout();
       toast.success("로그아웃 되었습니다.", { id: toastId });
