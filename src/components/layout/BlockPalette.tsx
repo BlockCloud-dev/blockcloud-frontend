@@ -2,8 +2,6 @@ import React from "react";
 import {
   Server,
   Search,
-  ToggleRight,
-  ToggleLeft,
   Cloud,
   Archive,
   Shield,
@@ -84,10 +82,7 @@ const CATEGORY_TABS = [
   "DNS",
 ];
 
-export function BlockPalette({
-  onDragStart,
-  onDragEnd,
-}: BlockPaletteProps) {
+export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
   // Zustand에서 CSP 상태 가져오기
   const selectedCSP = useProjectStore((state) => state.currentCSP);
   const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
@@ -124,10 +119,11 @@ export function BlockPalette({
         {CSP_TABS.map((csp) => (
           <button
             key={csp}
-            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${selectedCSP === csp
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200 text-gray-600"
-              }`}
+            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
+              selectedCSP === csp
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-600"
+            }`}
             onClick={() => setCurrentCSP(csp as "AWS" | "GCP" | "Azure")}
           >
             {csp.toUpperCase()}
@@ -140,10 +136,11 @@ export function BlockPalette({
         {CATEGORY_TABS.map((cat) => (
           <button
             key={cat}
-            className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${selectedCategory === cat
-              ? "bg-blue-100 text-blue-700 border border-blue-400"
-              : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-              }`}
+            className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${
+              selectedCategory === cat
+                ? "bg-blue-100 text-blue-700 border border-blue-400"
+                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+            }`}
             onClick={() => setSelectedCategory(cat)}
           >
             {cat}
@@ -151,7 +148,6 @@ export function BlockPalette({
         ))}
       </div>
 
-      {/* Search + Auto Scaffold */}
       <div className="flex items-center gap-2 mb-3">
         <div className="relative flex-1">
           <input
@@ -162,16 +158,7 @@ export function BlockPalette({
           />
           <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-500">Auto-Scaffold</span>
-          <button onClick={() => setAutoScaffold((prev) => !prev)}>
-            {autoScaffold ? (
-              <ToggleRight className="w-6 h-6 text-blue-500" />
-            ) : (
-              <ToggleLeft className="w-6 h-6 text-gray-400" />
-            )}
-          </button>
-        </div>
+        <div className="flex items-center gap-1"></div>
       </div>
 
       {/* Block List */}
@@ -188,11 +175,11 @@ export function BlockPalette({
                 key={block.id}
                 draggable
                 onDragStart={(e) => {
-                  console.log("🚀 [BlockPalette] Drag started for block:", block);
-                  e.dataTransfer.setData(
-                    "text/plain",
-                    JSON.stringify(block)
+                  console.log(
+                    "🚀 [BlockPalette] Drag started for block:",
+                    block
                   );
+                  e.dataTransfer.setData("text/plain", JSON.stringify(block));
                   onDragStart?.(block);
                 }}
                 onDragEnd={onDragEnd}

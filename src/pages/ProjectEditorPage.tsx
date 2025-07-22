@@ -20,7 +20,7 @@ import {
   useUIStore,
   useProjectStore,
   useResetAllStores,
-  useLoadProject
+  useLoadProject,
 } from "../stores";
 
 // 프로젝트 관리 유틸
@@ -28,7 +28,7 @@ import {
   saveProject,
   loadProjectFromFile,
   saveProjectToLocalStorage,
-  loadProjectFromLocalStorage
+  loadProjectFromLocalStorage,
 } from "../utils/projectManager";
 import { snapToGrid } from "../utils/snapGrid";
 
@@ -80,10 +80,7 @@ function ProjectEditorPage() {
     resetConnectionMode,
   } = useUIStore();
 
-  const {
-    projectName,
-    currentCSP,
-  } = useProjectStore();
+  const { projectName, currentCSP } = useProjectStore();
 
   // 헬퍼 훅들
   const resetAllStores = useResetAllStores();
@@ -139,8 +136,9 @@ function ProjectEditorPage() {
       timestamp: Date.now(),
       properties: {
         name: blockData.name || `New ${blockData.id}`,
-        description: `${blockData.name
-          } created at ${new Date().toLocaleString()}`,
+        description: `${
+          blockData.name
+        } created at ${new Date().toLocaleString()}`,
       },
       size: blockSize,
     };
@@ -180,7 +178,10 @@ function ProjectEditorPage() {
     setTimeout(() => {
       const updatedBlocks = [...droppedBlocks, newBlock];
       detectAndCreateStackingConnections(updatedBlocks);
-      console.log("🔗 스태킹 연결 검출 완료 - 총 블록 수:", updatedBlocks.length);
+      console.log(
+        "🔗 스태킹 연결 검출 완료 - 총 블록 수:",
+        updatedBlocks.length
+      );
     }, 100);
 
     console.log("📊 Total blocks:", droppedBlocks.length + 1);
@@ -199,13 +200,20 @@ function ProjectEditorPage() {
         console.log("🔗 연결 시작 블록 선택:", blockId);
       } else if (selectedFromBlockId !== blockId) {
         // 두 번째 블록 선택 - 연결 생성
-        const fromBlock = droppedBlocks.find(b => b.id === selectedFromBlockId);
-        const toBlock = droppedBlocks.find(b => b.id === blockId);
+        const fromBlock = droppedBlocks.find(
+          (b) => b.id === selectedFromBlockId
+        );
+        const toBlock = droppedBlocks.find((b) => b.id === blockId);
 
         if (fromBlock && toBlock) {
           const success = completeConnection(blockId, fromBlock, toBlock);
           if (success) {
-            console.log("🔗 연결 생성 성공:", selectedFromBlockId, "->", blockId);
+            console.log(
+              "🔗 연결 생성 성공:",
+              selectedFromBlockId,
+              "->",
+              blockId
+            );
             resetConnectionMode(); // 연결 모드 종료
           } else {
             console.log("❌ 연결 생성 실패");
@@ -631,15 +639,17 @@ function ProjectEditorPage() {
   // 연결 관련 핸들러들
   const handleConnectionComplete = (toBlockId: string) => {
     // 연결 중인 블록들의 정보 가져오기
-    const fromBlock = connectingFrom ? droppedBlocks.find(block => block.id === connectingFrom) : undefined;
-    const toBlock = droppedBlocks.find(block => block.id === toBlockId);
+    const fromBlock = connectingFrom
+      ? droppedBlocks.find((block) => block.id === connectingFrom)
+      : undefined;
+    const toBlock = droppedBlocks.find((block) => block.id === toBlockId);
 
     const success = completeConnection(toBlockId, fromBlock, toBlock);
     if (success) {
       console.log("🔗 Connection created:", {
         from: fromBlock?.type,
         to: toBlock?.type,
-        isEbsConnection: (fromBlock?.type === 'ebs' || toBlock?.type === 'ebs')
+        isEbsConnection: fromBlock?.type === "ebs" || toBlock?.type === "ebs",
       });
     } else {
       console.log("❌ Connection failed");
@@ -680,7 +690,7 @@ function ProjectEditorPage() {
 
   const handleSaveProject = () => {
     if (droppedBlocks.length === 0) {
-      alert('저장할 블록이 없습니다.');
+      alert("저장할 블록이 없습니다.");
       return;
     }
 
@@ -694,32 +704,34 @@ function ProjectEditorPage() {
     // localStorage에 저장
     const key = `project_${Date.now()}`;
     if (saveProjectToLocalStorage(projectData, key)) {
-      alert('프로젝트가 저장되었습니다.');
+      alert("프로젝트가 저장되었습니다.");
     } else {
-      alert('프로젝트 저장에 실패했습니다.');
+      alert("프로젝트 저장에 실패했습니다.");
     }
   };
 
   const handleQuickLoadProject = () => {
     // 가장 최근 저장된 프로젝트 로드
-    const recentProject = loadProjectFromLocalStorage('current_project');
+    const recentProject = loadProjectFromLocalStorage("current_project");
     if (recentProject) {
       handleLoadProject(recentProject);
-      alert('프로젝트가 로드되었습니다.');
+      alert("프로젝트가 로드되었습니다.");
     } else {
       // 파일 로드 다이얼로그 열기
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
       input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (file) {
           try {
             const projectData = await loadProjectFromFile(file);
             handleLoadProject(projectData);
-            alert('프로젝트가 로드되었습니다.');
+            alert("프로젝트가 로드되었습니다.");
           } catch (error) {
-            alert('프로젝트 파일을 로드할 수 없습니다: ' + (error as Error).message);
+            alert(
+              "프로젝트 파일을 로드할 수 없습니다: " + (error as Error).message
+            );
           }
         }
       };
@@ -765,7 +777,7 @@ function ProjectEditorPage() {
             axis,
             delta,
             oldSize: selectedBlock.size,
-            newSize
+            newSize,
           });
 
           handleBlockResize(selectedBlockId, newSize);
@@ -868,12 +880,8 @@ function ProjectEditorPage() {
           <div className="h-full w-full flex flex-col overflow-hidden">
             <TabHeader />
             <div className="flex-1 overflow-y-auto">
-              {activeTab === "connections" && (
-                <ConnectionsPanel />
-              )}
-              {activeTab === "code" && (
-                <CodeEditor key="code-editor" />
-              )}
+              {activeTab === "connections" && <ConnectionsPanel />}
+              {activeTab === "code" && <CodeEditor key="code-editor" />}
               {activeTab === "properties" && propertiesBlockId && (
                 <PropertiesPanel />
               )}
@@ -893,8 +901,8 @@ function ProjectEditorPage() {
               마지막 업데이트:{" "}
               {droppedBlocks.length > 0
                 ? new Date(
-                  Math.max(...droppedBlocks.map((b) => b.timestamp))
-                ).toLocaleTimeString()
+                    Math.max(...droppedBlocks.map((b) => b.timestamp))
+                  ).toLocaleTimeString()
                 : "없음"}
             </span>
           </div>

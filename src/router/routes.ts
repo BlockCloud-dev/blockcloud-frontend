@@ -1,27 +1,27 @@
 // 라우트 상수 정의
 export const ROUTES = {
   // 공개 라우트
-  HOME: '/',
-  LOGIN: '/login',
-  LOGIN_SUCCESS: '/login/success',
-  REGISTER: '/register',
+  HOME: "/",
+  LOGIN: "/login",
+  LOGIN_SUCCESS: "/login/success",
+  REGISTER: "/register",
 
-  // 인증 필요 라우트  
-  DASHBOARD: '/dashboard',           // 프로젝트 목록
-  PROJECT_EDITOR: '/project/:id',   // 3D 에디터 (현재 App.tsx)
-  PROJECT_NEW: '/project/new',      // 새 프로젝트
+  // 인증 필요 라우트
+  DASHBOARD: "/dashboard", // 프로젝트 목록
+  PROJECT_EDITOR: "/project/:id", // 3D 에디터 (현재 App.tsx)
+  PROJECT_NEW: "/project/new", // 새 프로젝트
 
   // 사용자 관련
-  PROFILE: '/profile',
-  SETTINGS: '/settings',
+  PROFILE: "/profile",
+  SETTINGS: "/settings",
 
   // 기타
-  NOT_FOUND: '/404'
+  NOT_FOUND: "/404",
 } as const;
 
 // 라우트 타입 정의
 export type RouteKey = keyof typeof ROUTES;
-export type RouteValue = typeof ROUTES[RouteKey];
+export type RouteValue = (typeof ROUTES)[RouteKey];
 
 // 동적 라우트 헬퍼 함수들
 export const createProjectEditorRoute = (projectId: string) =>
@@ -37,8 +37,9 @@ export const isAuthRequiredRoute = (pathname: string): boolean => {
     ROUTES.DASHBOARD,
     ROUTES.PROJECT_NEW,
     ROUTES.PROFILE,
-    ROUTES.SETTINGS
+    ROUTES.SETTINGS,
   ];
-  return authRoutes.includes(pathname as any) ||
-    pathname.startsWith('/project/');
+  return (
+    authRoutes.includes(pathname as any) || pathname.startsWith("/project/")
+  );
 };

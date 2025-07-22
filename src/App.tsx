@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
-import { RouterProvider } from 'react-router-dom';
-import router from './router';
-import { useAuthStore } from './stores/authStore';
+// src/App.tsx
+import React, { useEffect } from "react";
+import { RouterProvider } from "react-router-dom";
+import { Toaster } from "react-hot-toast"; // ← import 추가
+import { router } from "./router";
+import { useAuthStore } from "./stores/authStore";
 
 /**
  * BlockCloud 메인 애플리케이션 컴포넌트
@@ -15,7 +17,21 @@ function App() {
     initialize();
   }, [initialize]);
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      {/* 전역 토스트 컨테이너 */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: { fontSize: "14px" },
+        }}
+      />
+
+      {/* 라우터 */}
+      <RouterProvider router={router} />
+    </>
+  );
 }
 
 export default App;
