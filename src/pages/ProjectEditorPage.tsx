@@ -74,6 +74,10 @@ function ProjectEditorPage() {
     activeTab,
     setActiveTab,
     setGeneratedCode,
+    isConnectionMode,
+    selectedFromBlockId,
+    setSelectedFromBlockId,
+    resetConnectionMode,
   } = useUIStore();
 
   const {
@@ -172,10 +176,12 @@ function ProjectEditorPage() {
     addBlock(newBlock);
     console.log("✅ Block added to scene:", newBlock);
 
-    // 스택킹 연결 검출
+    // 스택킹 연결 검출 (새 블록이 추가된 후의 전체 블록 리스트 사용)
     setTimeout(() => {
-      detectAndCreateStackingConnections(droppedBlocks);
-    }, 50);
+      const updatedBlocks = [...droppedBlocks, newBlock];
+      detectAndCreateStackingConnections(updatedBlocks);
+      console.log("🔗 스태킹 연결 검출 완료 - 총 블록 수:", updatedBlocks.length);
+    }, 100);
 
     console.log("📊 Total blocks:", droppedBlocks.length + 1);
 
@@ -183,6 +189,40 @@ function ProjectEditorPage() {
   };
 
   const handleBlockClick = (blockId: string) => {
+    console.log("🎯 Block clicked:", blockId);
+
+    // 연결 모드가 활성화된 경우
+    if (isConnectionMode) {
+      if (!selectedFromBlockId) {
+        // 첫 번째 블록 선택
+        setSelectedFromBlockId(blockId);
+        console.log("🔗 연결 시작 블록 선택:", blockId);
+      } else if (selectedFromBlockId !== blockId) {
+        // 두 번째 블록 선택 - 연결 생성
+        const fromBlock = droppedBlocks.find(b => b.id === selectedFromBlockId);
+        const toBlock = droppedBlocks.find(b => b.id === blockId);
+
+        if (fromBlock && toBlock) {
+          const success = completeConnection(blockId, fromBlock, toBlock);
+          if (success) {
+            console.log("🔗 연결 생성 성공:", selectedFromBlockId, "->", blockId);
+            resetConnectionMode(); // 연결 모드 종료
+          } else {
+            console.log("❌ 연결 생성 실패");
+            // 실패 시 첫 번째 블록을 현재 클릭한 블록으로 변경
+            setSelectedFromBlockId(blockId);
+          }
+        } else {
+          resetConnectionMode();
+        }
+      } else {
+        // 같은 블록을 다시 클릭한 경우 - 선택 해제하고 연결 모드 종료
+        resetConnectionMode();
+      }
+      return; // 연결 모드에서는 일반 선택 로직을 실행하지 않음
+    }
+
+    // 일반 블록 선택 로직
     console.log("🎯 Block clicked for selection:", blockId);
     setSelectedBlockId(blockId === selectedBlockId ? null : blockId);
     setPropertiesBlockId(null); // 클릭으로는 속성 패널을 열지 않음
@@ -580,13 +620,27 @@ function ProjectEditorPage() {
   ) => {
     resizeBlock(blockId, newSize);
     console.log("📏 Block resized:", blockId, newSize);
+
+    // 블록 크기 변경 후 스태킹 연결 재검출
+    setTimeout(() => {
+      detectAndCreateStackingConnections(droppedBlocks);
+      console.log("🔗 블록 크기 변경 후 스태킹 연결 재검출 완료");
+    }, 100);
   };
 
   // 연결 관련 핸들러들
   const handleConnectionComplete = (toBlockId: string) => {
-    const success = completeConnection(toBlockId);
+    // 연결 중인 블록들의 정보 가져오기
+    const fromBlock = connectingFrom ? droppedBlocks.find(block => block.id === connectingFrom) : undefined;
+    const toBlock = droppedBlocks.find(block => block.id === toBlockId);
+
+    const success = completeConnection(toBlockId, fromBlock, toBlock);
     if (success) {
-      console.log("🔗 Connection created");
+      console.log("🔗 Connection created:", {
+        from: fromBlock?.type,
+        to: toBlock?.type,
+        isEbsConnection: (fromBlock?.type === 'ebs' || toBlock?.type === 'ebs')
+      });
     } else {
       console.log("❌ Connection failed");
     }
@@ -690,21 +744,29 @@ function ProjectEditorPage() {
         const selectedBlock = droppedBlocks.find(
           (block) => block.id === selectedBlockId
         );
-        if (
-          selectedBlock &&
-          ["vpc", "subnet"].includes(selectedBlock.type) &&
-          selectedBlock.size
-        ) {
+        if (selectedBlock && selectedBlock.size) {
           const newSize: [number, number, number] = [...selectedBlock.size];
 
           // 축에 따라 크기 조절
           if (axis === "width") {
-            newSize[0] = Math.max(1, Math.min(20, newSize[0] + delta));
+            // 가로 크기는 제한 없이 조절 (최소값 0.5만 유지)
+            newSize[0] = Math.max(0.5, newSize[0] + delta);
           } else if (axis === "height") {
-            newSize[1] = Math.max(0.1, Math.min(2, newSize[1] + delta));
+            // 높이는 고정 - 조절하지 않음
+            console.log("높이 조절은 제한됩니다.");
+            return;
           } else if (axis === "depth") {
-            newSize[2] = Math.max(1, Math.min(20, newSize[2] + delta));
+            // 세로 크기는 제한 없이 조절 (최소값 0.5만 유지)
+            newSize[2] = Math.max(0.5, newSize[2] + delta);
           }
+
+          console.log("🔧 블록 크기 조절:", {
+            blockType: selectedBlock.type,
+            axis,
+            delta,
+            oldSize: selectedBlock.size,
+            newSize
+          });
 
           handleBlockResize(selectedBlockId, newSize);
         }
