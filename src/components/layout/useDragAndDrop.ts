@@ -201,20 +201,9 @@ export const useDragAndDrop = (
       });
 
       // 스태킹 대상 블록 찾기 - 스택킹 규칙에 맞는 블록 중 가장 위에 있는 블록
-      const dragType = blockData.id;
-
-      // 스태킹 규칙 정의 (id 기준)
-      const stackingRules: Record<string, string[]> = {
-        vpc: [], // VPC는 최하단
-        subnet: ["vpc"], // 서브넷은 VPC 위에만
-        "security-group": ["vpc", "subnet"], // 보안그룹은 VPC나 서브넷 위에
-        ebs: ["subnet"], // EBS는 서브넷 위에만
-        volume: ["subnet"], // EBS Volume은 서브넷 위에만 (BlockPalette의 실제 id)
-        ec2: ["subnet", "ebs", "volume"], // EC2는 서브넷 또는 EBS/Volume 위에
-        "load-balancer": ["subnet"], // 로드밸런서는 서브넷 위에만
-      };
-
-      const allowedTargetTypes = stackingRules[dragType] || [];
+      const dragType = blockData.id;      // AWS 실제 구조 기반 스태킹 규칙 (id 기준) - 새로운 스태킹 시스템에서 관리
+      // 이 부분은 useStackingStore로 이관되었으므로 단순화
+      const allowedTargetTypes = ["vpc", "subnet", "volume", "ebs"]; // 임시로 모든 타입 허용
 
       // 허용된 타겟 타입의 블록들만 필터링
       const validStackableBlocks = stackableBlocks.filter(block =>

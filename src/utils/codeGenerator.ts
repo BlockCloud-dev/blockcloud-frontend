@@ -208,18 +208,36 @@ provider "aws" {
         }
       });
 
-      // 연결된 부트 볼륨 찾기 (스택킹 연결)
+      // 연결된 부트 볼륨 찾기 (직접적인 부트볼륨 연결만)
+      console.log(`🔍 [CodeGen] EC2 ${ec2.id} 부트볼륨 연결 검사 시작`);
+      console.log(`🔍 [CodeGen] 전체 연결:`, connections.length);
+
       const bootVolumeConnections = connections.filter(
-        (conn) =>
-          (conn.fromBlockId === ec2.id || conn.toBlockId === ec2.id) &&
-          (
-            // 스택킹 연결이거나 부트 볼륨 전용 연결 타입
-            conn.properties?.stackConnection === true ||
+        (conn) => {
+          // 직접적인 부트볼륨 연결 타입만 허용
+          const isDirectBootConnection = (
             conn.connectionType === "ebs-ec2-boot" ||
-            conn.connectionType === "volume-ec2-boot" ||
-            conn.properties?.volumeType === "boot"
-          )
+            conn.connectionType === "volume-ec2-boot"
+          );
+
+          // EC2가 연결의 한쪽 끝이어야 함
+          const isEC2Connected = (conn.fromBlockId === ec2.id || conn.toBlockId === ec2.id);
+
+          if (isEC2Connected) {
+            console.log(`🔍 [CodeGen] EC2 연결 발견:`, {
+              id: conn.id,
+              type: conn.connectionType,
+              isDirectBoot: isDirectBootConnection,
+              from: conn.fromBlockId.substring(0, 8),
+              to: conn.toBlockId.substring(0, 8)
+            });
+          }
+
+          return isEC2Connected && isDirectBootConnection;
+        }
       );
+
+      console.log(`🔍 [CodeGen] 부트볼륨 연결 발견:`, bootVolumeConnections.length);
 
       code += `resource "aws_instance" "${ec2Id}" {
   ami           = "${ec2.properties.ami || "ami-12345678"}"

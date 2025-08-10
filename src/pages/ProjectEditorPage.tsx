@@ -21,6 +21,7 @@ import {
   useProjectStore,
   useResetAllStores,
   useLoadProject,
+  useStackingStore,
 } from "../stores";
 
 // 프로젝트 관리 유틸
@@ -61,13 +62,13 @@ function ProjectEditorPage() {
     selectedConnection,
     isConnecting,
     connectingFrom,
+    setConnections,
     setSelectedConnection,
     deleteConnection,
     deleteConnectionsForBlock,
     startConnecting,
     cancelConnecting,
     completeConnection,
-    detectAndCreateStackingConnections,
   } = useConnectionStore();
 
   const {
@@ -86,24 +87,240 @@ function ProjectEditorPage() {
   const resetAllStores = useResetAllStores();
   const loadProjectData = useLoadProject();
 
-  // 스태킹 규칙 함수
-  const canStack = (type1: string, type2: string) => {
-    const stackingRules: { [key: string]: string[] } = {
-      vpc: [], // VPC는 바닥에만 배치 가능
-      subnet: ["vpc"], // Subnet은 VPC 위에만 배치 가능
-      ec2: ["subnet", "volume"], // EC2는 Subnet 위 또는 EBS Volume(부트볼륨) 위에 배치 가능
-      "security-group": ["subnet", "ec2", "volume"], // Security Group은 Subnet, EC2, 또는 Volume 위에 배치 가능 (더 유연함)
-      "load-balancer": ["subnet"], // Load Balancer는 Subnet 위에만 배치 가능
-      volume: ["subnet"], // EBS Volume은 Subnet 위에 배치 가능 (EC2 제거 - 스태킹은 부트볼륨용)
-    };
-    return stackingRules[type1]?.includes(type2) || false;
+  // 새로운 스태킹 시스템 import
+  const {
+    canStack,
+    createStackingRelation,
+    deriveConnectionsFromStacking,
+    validateStacking,
+    calculateStackedPosition,
+    removeStackingRelation
+  } = useStackingStore();
+
+  // 새 블록의 스태킹 처리 (자유로운 배치 허용)
+  const handleStackingForNewBlock = (newBlock: DroppedBlock, allBlocks: DroppedBlock[], forcePosition?: boolean) => {
+    console.log('🎯 [NewStacking] 새 블록 스태킹 처리:', newBlock.type, 'forcePosition:', forcePosition);
+
+    // 스태킹 가능한 대상 찾기
+    const potentialTargets = allBlocks
+      .filter(block => block.id !== newBlock.id)
+      .filter(block => canStack(newBlock.type, block.type))
+      .filter(block => validateStacking(newBlock, block));
+
+    if (potentialTargets.length > 0) {
+      // EC2의 경우 물리적으로 가까운 대상과만 스태킹 관계 생성
+      if (newBlock.type === 'ec2') {
+        console.log('🔗 [NewStacking] EC2 다중 스태킹 처리:', potentialTargets.map(t => t.type));
+
+        // 거리 기반으로 필터링하여 정말 가까운 대상만 선택
+        const closeTargets = potentialTargets.filter(target => {
+          const distance = Math.sqrt(
+            Math.pow(newBlock.position.x - target.position.x, 2) +
+            Math.pow(newBlock.position.z - target.position.z, 2)
+          );
+
+          // 부트볼륨 연결(EC2-Volume/EBS)은 매우 가까워야 함 (거리 1.5 이하)
+          if (target.type === 'volume' || target.type === 'ebs') {
+            const isVeryClose = distance <= 1.5;
+            console.log('🔍 [NewStacking] 부트볼륨 거리 검사:', {
+              target: target.type,
+              distance: distance.toFixed(2),
+              isVeryClose
+            });
+            return isVeryClose;
+          }
+
+          // Subnet 연결은 더 관대하게 (거리 5.0 이하)
+          if (target.type === 'subnet') {
+            const isClose = distance <= 5.0;
+            console.log('🔍 [NewStacking] Subnet 거리 검사:', {
+              distance: distance.toFixed(2),
+              isClose
+            });
+            return isClose;
+          }
+
+          return false;
+        });
+
+        console.log('🔗 [NewStacking] 거리 필터링 후 대상:', closeTargets.map(t => t.type));
+
+        // 가까운 대상과만 스태킹 관계 생성
+        closeTargets.forEach(target => {
+          createStackingRelation(newBlock.id, target.id, allBlocks);
+          console.log('🔗 [NewStacking] EC2 스태킹 관계 생성:', target.type);
+        });
+
+        // 위치 조정은 주요 대상(Subnet 우선)으로
+        const primaryTarget = selectStackingTargetByPriority(newBlock, closeTargets);
+        if (forcePosition && primaryTarget) {
+          const stackedPosition = calculateStackedPosition(newBlock, primaryTarget);
+          moveBlock(newBlock.id, stackedPosition);
+          console.log('📍 [NewStacking] EC2 위치 조정됨 (주요 대상:', primaryTarget.type, ')');
+        } else {
+          console.log('🎯 [NewStacking] EC2 사용자 위치 유지');
+        }
+      } else {
+        // 다른 블록 타입은 기존 방식 (단일 대상)
+        const targetBlock = selectStackingTargetByPriority(newBlock, potentialTargets);
+
+        if (targetBlock) {
+          console.log('🔗 [NewStacking] 스태킹 대상 발견:', targetBlock.type);
+
+          // 스태킹 관계 생성
+          createStackingRelation(newBlock.id, targetBlock.id, allBlocks);
+
+          // 위치 조정 (옵션)
+          if (forcePosition) {
+            const stackedPosition = calculateStackedPosition(newBlock, targetBlock);
+            moveBlock(newBlock.id, stackedPosition);
+            console.log('📍 [NewStacking] 위치 강제 조정됨');
+          } else {
+            console.log('🎯 [NewStacking] 사용자 위치 유지');
+          }
+        }
+      }
+
+      // 즉시 연결 업데이트
+      const derivedConnections = deriveConnectionsFromStacking(allBlocks);
+      const nonStackingConnections = connections.filter(conn =>
+        !conn.properties?.stackConnection
+      );
+      const allConnections = [...nonStackingConnections, ...derivedConnections];
+      setConnections(allConnections);
+
+      console.log('✅ [NewStacking] 스태킹 완료 + 연결 업데이트:', derivedConnections.length, '개');
+    } else {
+      console.log('ℹ️ [NewStacking] 스태킹 대상 없음');
+    }
+  };
+
+  // AWS 우선순위에 따른 스태킹 대상 선택
+  const selectStackingTargetByPriority = (block: DroppedBlock, potentialTargets: DroppedBlock[]): DroppedBlock | null => {
+    console.log('🎯 [SelectTarget] 스태킹 대상 선택 시작:', {
+      blockType: block.type,
+      blockId: block.id.substring(0, 8),
+      potentialTargets: potentialTargets.map(t => `${t.type}(${t.id.substring(0, 8)})`)
+    });
+
+    // EC2: 거리 기반 우선순위 (가까운 블록 우선)
+    if (block.type === 'ec2') {
+      const subnetTargets = potentialTargets.filter(t => t.type === 'subnet');
+      const storageTargets = potentialTargets.filter(t => t.type === 'ebs' || t.type === 'volume');
+
+      console.log('🎯 [SelectTarget] EC2 타겟 분류:', {
+        subnetTargets: subnetTargets.length,
+        storageTargets: storageTargets.length
+      });
+
+      // 모든 가능한 타겟을 거리순으로 정렬
+      const allTargetsWithDistance = [...subnetTargets, ...storageTargets].map(target => {
+        const distance = Math.sqrt(
+          Math.pow(block.position.x - target.position.x, 2) +
+          Math.pow(block.position.z - target.position.z, 2)
+        );
+        return {
+          target,
+          distance,
+          isStorage: target.type === 'ebs' || target.type === 'volume'
+        };
+      }).sort((a, b) => a.distance - b.distance);
+
+      console.log('🎯 [SelectTarget] 거리 순 정렬 결과:', allTargetsWithDistance.map(t => ({
+        type: t.target.type,
+        id: t.target.id.substring(0, 8),
+        distance: t.distance.toFixed(2),
+        isStorage: t.isStorage
+      })));
+
+      if (allTargetsWithDistance.length > 0) {
+        const closest = allTargetsWithDistance[0];
+        console.log('🎯 [ProjectEditor] EC2 거리 기반 스태킹 선택:', {
+          target: closest.target.type,
+          targetId: closest.target.id.substring(0, 8),
+          distance: closest.distance.toFixed(2),
+          isBootVolume: closest.isStorage
+        });
+        return closest.target;
+      }
+    }
+
+    // Subnet: VPC
+    if (block.type === 'subnet') {
+      const vpcTarget = potentialTargets.find(t => t.type === 'vpc');
+      if (vpcTarget) return vpcTarget;
+    }
+
+    // Storage: Subnet
+    if (block.type === 'ebs' || block.type === 'volume') {
+      const subnetTarget = potentialTargets.find(t => t.type === 'subnet');
+      if (subnetTarget) return subnetTarget;
+    }
+
+    // 기타: Y축 높은 순
+    return potentialTargets.sort((a, b) => b.position.y - a.position.y)[0] || null;
+  };
+
+  // 블록 이동 시 스태킹 업데이트
+  const handleStackingForMovedBlock = (blockId: string, allBlocks: DroppedBlock[]) => {
+    console.log('🔄🔄🔄 [NewStacking] ===== 이동된 블록 스태킹 업데이트 시작 =====');
+    console.log('🔄 [NewStacking] BlockID:', blockId);
+    console.log('🔄 [NewStacking] AllBlocks count:', allBlocks.length);
+
+    // 기존 스태킹 관계 제거
+    console.log('🗑️ [NewStacking] 기존 스태킹 관계 제거 호출');
+    removeStackingRelation(blockId);
+
+    // 새로운 위치에서 스태킹 확인
+    const movedBlock = allBlocks.find(block => block.id === blockId);
+    console.log('🔍 [NewStacking] 이동된 블록 찾기:', !!movedBlock);
+
+    if (movedBlock) {
+      console.log('🎯 [NewStacking] 새로운 스태킹 처리 호출');
+      handleStackingForNewBlock(movedBlock, allBlocks);
+
+      // 즉시 연결 업데이트
+      console.log('🔗 [NewStacking] 연결 업데이트 시작');
+      const derivedConnections = deriveConnectionsFromStacking(allBlocks);
+      console.log('🔗 [NewStacking] 파생된 연결 수:', derivedConnections.length);
+
+      const nonStackingConnections = connections.filter(conn =>
+        !conn.properties?.stackConnection
+      );
+      console.log('🔗 [NewStacking] 비스태킹 연결 수:', nonStackingConnections.length);
+
+      const allConnections = [...nonStackingConnections, ...derivedConnections];
+      console.log('🔗 [NewStacking] 총 연결 수:', allConnections.length);
+
+      setConnections(allConnections);
+
+      console.log('✅ [NewStacking] 이동 후 연결 업데이트 완료');
+    } else {
+      console.log('❌ [NewStacking] 이동된 블록을 찾을 수 없음');
+    }
+    console.log('🔄🔄🔄 [NewStacking] ===== 이동된 블록 스태킹 업데이트 종료 =====');
   };
 
   // 블록 변경 시 HCL 코드 자동 생성 (연결 정보 포함)
   useEffect(() => {
-    const code = generateTerraformCode(droppedBlocks, connections);
+    // 스태킹 상태에서 연결 자동 파생
+    const derivedConnections = deriveConnectionsFromStacking(droppedBlocks);
+
+    // 기존 비스태킹 연결과 합치기
+    const nonStackingConnections = connections.filter(conn =>
+      !conn.properties?.stackConnection
+    );
+    const allConnections = [...nonStackingConnections, ...derivedConnections];
+
+    // 연결 업데이트
+    if (JSON.stringify(allConnections) !== JSON.stringify(connections)) {
+      setConnections(allConnections);
+    }
+
+    // 코드 생성
+    const code = generateTerraformCode(droppedBlocks, allConnections);
     setGeneratedCode(code);
-  }, [droppedBlocks, connections]);
+  }, [droppedBlocks, deriveConnectionsFromStacking, connections, setConnections, setGeneratedCode]);
 
   const handleBlockDrop = (blockData: any, position: Vector3) => {
     const blockSizes = {
@@ -136,9 +353,8 @@ function ProjectEditorPage() {
       timestamp: Date.now(),
       properties: {
         name: blockData.name || `New ${blockData.id}`,
-        description: `${
-          blockData.name
-        } created at ${new Date().toLocaleString()}`,
+        description: `${blockData.name
+          } created at ${new Date().toLocaleString()}`,
       },
       size: blockSize,
     };
@@ -174,19 +390,11 @@ function ProjectEditorPage() {
     addBlock(newBlock);
     console.log("✅ Block added to scene:", newBlock);
 
-    // 스택킹 연결 검출 (새 블록이 추가된 후의 전체 블록 리스트 사용)
-    setTimeout(() => {
-      const updatedBlocks = [...droppedBlocks, newBlock];
-      detectAndCreateStackingConnections(updatedBlocks);
-      console.log(
-        "🔗 스태킹 연결 검출 완료 - 총 블록 수:",
-        updatedBlocks.length
-      );
-    }, 100);
+    // 새로운 스태킹 시스템: 자유로운 배치 허용 (위치 강제 조정 비활성화)
+    const updatedBlocks = [...droppedBlocks, newBlock];
+    handleStackingForNewBlock(newBlock, updatedBlocks, false); // forcePosition: false
 
     console.log("📊 Total blocks:", droppedBlocks.length + 1);
-
-    // TODO: HCL 코드 업데이트 로직 추가
   };
 
   const handleBlockClick = (blockId: string) => {
@@ -580,26 +788,16 @@ function ProjectEditorPage() {
     setIsDraggingBlock(null);
     setDragPosition(null);
 
-    // 블록 이동 후 자동으로 스택킹 연결 검출
-    setTimeout(() => {
-      console.log(
-        "🔄 [BlockMove] Calling detectAndCreateStackingConnections with",
-        droppedBlocks.length,
-        "blocks"
-      );
-      detectAndCreateStackingConnections(droppedBlocks);
-      console.log(
-        "🔄 [BlockMove] Stacking detection completed after block move"
-      );
+    // 새로운 스태킹 시스템: 위치 업데이트 후 스태킹 처리
+    // 업데이트된 블록 배열을 직접 생성하여 전달
+    const updatedBlocks = droppedBlocks.map(block =>
+      block.id === blockId
+        ? { ...block, position: finalPosition }
+        : block
+    );
 
-      // EBS 역할 재분석 (volume 블록이 이동되었거나 EC2 블록이 이동되었을 때)
-      // TODO: EBS 역할 분석 로직을 blockStore로 이전
-      if (movingBlock.type === "volume" || movingBlock.type === "ec2") {
-        console.log(
-          "🔄 [EBS] EBS 역할 재분석 필요하지만 임시로 비활성화 - blockStore로 이전 예정"
-        );
-      }
-    }, 30); // 더 빠른 응답을 위해 지연 시간 단축
+    console.log("🔄 [APP_MOVE] 업데이트된 블록 배열로 스태킹 처리");
+    handleStackingForMovedBlock(blockId, updatedBlocks);
 
     console.log("🔄 [APP_MOVE] Block moved:", blockId, finalPosition);
     console.log("🎯 [APP_MOVE] ========== BLOCK MOVE END ==========");
@@ -619,6 +817,7 @@ function ProjectEditorPage() {
   const handleBlockDragUpdate = (blockId: string, position: Vector3) => {
     if (isDraggingBlock === blockId) {
       setDragPosition(position);
+      // 드래그 중에는 위치만 업데이트, 연결은 드롭 후에 처리
     }
   };
 
@@ -629,11 +828,9 @@ function ProjectEditorPage() {
     resizeBlock(blockId, newSize);
     console.log("📏 Block resized:", blockId, newSize);
 
-    // 블록 크기 변경 후 스태킹 연결 재검출
-    setTimeout(() => {
-      detectAndCreateStackingConnections(droppedBlocks);
-      console.log("🔗 블록 크기 변경 후 스태킹 연결 재검출 완료");
-    }, 100);
+    // 새로운 스태킹 시스템: 크기 변경 후 스태킹 재검토
+    handleStackingForMovedBlock(blockId, droppedBlocks);
+    console.log("🔗 블록 크기 변경 후 스태킹 연결 재검출 완료");
   };
 
   // 연결 관련 핸들러들
@@ -901,8 +1098,8 @@ function ProjectEditorPage() {
               마지막 업데이트:{" "}
               {droppedBlocks.length > 0
                 ? new Date(
-                    Math.max(...droppedBlocks.map((b) => b.timestamp))
-                  ).toLocaleTimeString()
+                  Math.max(...droppedBlocks.map((b) => b.timestamp))
+                ).toLocaleTimeString()
                 : "없음"}
             </span>
           </div>

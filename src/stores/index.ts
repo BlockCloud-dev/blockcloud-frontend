@@ -4,17 +4,20 @@ export { useConnectionStore } from './connectionStore';
 export { useUIStore } from './uiStore';
 export { useProjectStore } from './projectStore';
 export { useAuthStore, useAuth } from './authStore';
+export { useStackingStore } from './stackingStore';
 
 // 스토어들을 함께 사용하는 헬퍼 훅들
 import { useBlockStore } from './blockStore';
 import { useConnectionStore } from './connectionStore';
 import { useUIStore } from './uiStore';
 import { useProjectStore } from './projectStore';
+import { useStackingStore } from './stackingStore';
 
 // 모든 상태를 초기화하는 헬퍼
 export const useResetAllStores = () => {
   const clearBlocks = useBlockStore((state) => state.clearAll);
   const clearConnections = useConnectionStore((state) => state.clearConnections);
+  const clearStackingStates = useStackingStore((state) => state.clearStackingStates);
   const newProject = useProjectStore((state) => state.newProject);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const setGeneratedCode = useUIStore((state) => state.setGeneratedCode);
@@ -22,6 +25,7 @@ export const useResetAllStores = () => {
   return () => {
     clearBlocks();
     clearConnections();
+    clearStackingStates();
     newProject();
     setActiveTab('code');
     setGeneratedCode('');

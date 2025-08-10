@@ -444,20 +444,17 @@ export const useConnections = () => {
           } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'ebs') {
             connectionType = 'subnet-ebs';
           } else if (lowerBlock.type === 'ebs' && upperBlock.type === 'ec2') {
-            // EC2가 EBS 위에 스택된 경우 - 부트 볼륨 관계
-            connectionType = 'ebs-ec2-boot';
-            connectionProperties = {
-              stackConnection: true,
-              volumeType: 'boot',
-              description: '부트 볼륨 (EC2가 EBS 위에 스택됨)'
-            };
-            console.log('💾 Boot volume relationship detected:', upperBlock.id.substring(0, 8), 'on', lowerBlock.id.substring(0, 8));
+            // EC2가 EBS 위에 스택된 경우 - 새로운 스태킹 시스템에서 처리하므로 여기서는 제외
+            console.log('💾 [레거시] EBS-EC2 스택 감지 - 새로운 스태킹 시스템에서 처리됨');
+            return; // 연결 생성하지 않음
           } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'security-group') {
             connectionType = 'subnet-security-group';
           } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'load-balancer') {
             connectionType = 'subnet-load-balancer';
-          } else if (lowerBlock.type === 'ec2' && upperBlock.type === 'volume') {
-            connectionType = 'volume-ec2';
+          } else if (lowerBlock.type === 'volume' && upperBlock.type === 'ec2') {
+            // EC2가 Volume 위에 스택된 경우 - 새로운 스태킹 시스템에서 처리하므로 여기서는 제외  
+            console.log('💾 [레거시] Volume-EC2 스택 감지 - 새로운 스태킹 시스템에서 처리됨');
+            return; // 연결 생성하지 않음
           } else {
             return; // 정의되지 않은 스택 관계
           }
