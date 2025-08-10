@@ -153,12 +153,12 @@ export const useStackingStore = create<StackingStoreState>()(
         Math.pow(childBlock.position.z - parentBlock.position.z, 2)
       );
 
-      // 부트볼륨 관련 스태킹(EC2-Volume/EBS)은 거리 제한을 더 관대하게
+      // 부트볼륨 관련 스태킹(EC2-Volume/EBS)은 매우 엄격하게
       let maxStackingDistance: number;
       if ((childBlock.type === 'ec2' && (parentBlock.type === 'volume' || parentBlock.type === 'ebs')) ||
         (parentBlock.type === 'ec2' && (childBlock.type === 'volume' || childBlock.type === 'ebs'))) {
-        // 부트볼륨 연결은 더 넓은 범위 허용 (최대 6.0 거리까지)
-        maxStackingDistance = 6.0;
+        // 부트볼륨 연결은 매우 가까워야 함 (최대 1.0 거리까지만)
+        maxStackingDistance = 1.0;
       } else {
         // 기본 스태킹은 블록 크기 기반
         maxStackingDistance = Math.max(
@@ -175,12 +175,36 @@ export const useStackingStore = create<StackingStoreState>()(
         isBootVolumeCase: (childBlock.type === 'ec2' && (parentBlock.type === 'volume' || parentBlock.type === 'ebs'))
       });
 
-      // 3. Y축 차이 검증 (더 관대하게)
+      // 3. Y축 차이 검증 - 부트볼륨은 더 엄격하게
       const yDiff = Math.abs(childBlock.position.y - parentBlock.position.y);
-      const isProperHeight = yDiff > 0.05 && yDiff < 5.0; // 더 넓은 범위
-      console.log('🔍 [ValidateStacking] Y축 검사:', { yDiff: yDiff.toFixed(2), isProperHeight });
+      const isBootVolumeCase = (childBlock.type === 'ec2' && (parentBlock.type === 'volume' || parentBlock.type === 'ebs'));
 
-      const result = (xOverlap && zOverlap) || (isWithinRange && isProperHeight);
+      let isProperHeight: boolean;
+      if (isBootVolumeCase) {
+        // 부트볼륨은 실제로 위에 스택되어야 함 (Y축 차이 0.1~2.0 범위)
+        isProperHeight = yDiff > 0.1 && yDiff < 2.0 && childBlock.position.y > parentBlock.position.y;
+      } else {
+        // 기본 스태킹은 기존 방식
+        isProperHeight = yDiff > 0.05 && yDiff < 5.0;
+      }
+
+      console.log('🔍 [ValidateStacking] Y축 검사:', {
+        yDiff: yDiff.toFixed(2),
+        isProperHeight,
+        isBootVolumeCase,
+        childHigher: childBlock.position.y > parentBlock.position.y
+      });
+
+      // 4. 최종 검증 - 부트볼륨은 겹침 + 거리 + Y축 모두 만족해야 함
+      let result: boolean;
+      if (isBootVolumeCase) {
+        // 부트볼륨: 겹침 AND 거리 AND Y축 모두 만족
+        result = xOverlap && zOverlap && isWithinRange && isProperHeight;
+      } else {
+        // 기본 스태킹: 겹침 OR (거리 AND Y축)
+        result = (xOverlap && zOverlap) || (isWithinRange && isProperHeight);
+      }
+
       console.log('🔍 [ValidateStacking] 최종 결과:', result);
 
       return result;
@@ -343,57 +367,7 @@ export const useStackingStore = create<StackingStoreState>()(
       return connections;
     },
 
-    // 도로 연결 생성 (같은 평면의 블록들 간)
-    createRoadConnections: (blocks: DroppedBlock[]) => {
-      const roadConnections: Connection[] = [];
 
-      // EC2와 EBS 간의 도로 연결 찾기
-      const ec2Blocks = blocks.filter(b => b.type === 'ec2');
-      const ebsBlocks = blocks.filter(b => b.type === 'ebs' || b.type === 'volume');
-
-      ec2Blocks.forEach(ec2 => {
-        ebsBlocks.forEach(ebs => {
-          // 같은 높이(Y축)에 있고 가까운 거리에 있는지 확인
-          const yDiff = Math.abs(ec2.position.y - ebs.position.y);
-          const distance = Math.sqrt(
-            Math.pow(ec2.position.x - ebs.position.x, 2) +
-            Math.pow(ec2.position.z - ebs.position.z, 2)
-          );
-
-          // 같은 평면(Y축 차이 0.5 이하)이고 도로 연결 거리(3.0 이하) 내에 있으면 연결
-          // 단, 너무 가까우면(1.5 이하) 스태킹으로 처리하므로 제외
-          if (yDiff <= 0.5 && distance <= 3.0 && distance > 1.5) {
-            const connectionId = `road_${[ec2.id, ebs.id].sort().join('_')}`;
-
-            const roadConnection: Connection = {
-              id: connectionId,
-              fromBlockId: ec2.id,
-              toBlockId: ebs.id,
-              connectionType: 'ebs-ec2-block',
-              properties: {
-                roadConnection: true,
-                description: `${ec2.type} ↔ ${ebs.type} 도로 연결 (블록 볼륨)`,
-                volumeType: 'block' as const,
-                isRootVolume: false,
-                distance: distance.toFixed(2)
-              }
-            };
-
-            roadConnections.push(roadConnection);
-
-            console.log('🛣️ [StackingStore] 도로 연결 생성:', {
-              connection: connectionId,
-              from: `${ec2.type}(${ec2.id.substring(0, 8)})`,
-              to: `${ebs.type}(${ebs.id.substring(0, 8)})`,
-              distance: distance.toFixed(2),
-              yDiff: yDiff.toFixed(2)
-            });
-          }
-        });
-      });
-
-      return roadConnections;
-    },
 
     // 스택된 위치 계산
     calculateStackedPosition: (childBlock, parentBlock) => {
