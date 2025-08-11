@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Trash2, Route, Link2, Plus, X } from 'lucide-react';
-import { useConnectionStore, useBlockStore, useUIStore } from '../../stores';
+import { useConnectionStore, useBlockStore } from '../../stores';
 
 interface ConnectionsPanelProps {
   // props 없이 Zustand에서 직접 상태 가져오기
 }
 
 export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
-  // Zustand에서 필요한 상태만 구독
+  // Zustand에서 필요한 상태만 구독 (통합된 ConnectionStore 사용)
   const connections = useConnectionStore((state) => state.connections);
   const selectedConnection = useConnectionStore((state) => state.selectedConnection);
   const setSelectedConnection = useConnectionStore((state) => state.setSelectedConnection);
@@ -15,12 +15,12 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
   const completeConnection = useConnectionStore((state) => state.completeConnection);
   const blocks = useBlockStore((state) => state.droppedBlocks);
 
-  // UI 스토어에서 연결 모드 상태 가져오기
-  const isConnectionMode = useUIStore((state) => state.isConnectionMode);
-  const selectedFromBlockId = useUIStore((state) => state.selectedFromBlockId);
-  const setConnectionMode = useUIStore((state) => state.setConnectionMode);
-  const setSelectedFromBlockId = useUIStore((state) => state.setSelectedFromBlockId);
-  const resetConnectionMode = useUIStore((state) => state.resetConnectionMode);
+  // 통합된 연결 모드 상태
+  const isConnectionMode = useConnectionStore((state) => state.isConnectionMode);
+  const selectedFromBlockId = useConnectionStore((state) => state.selectedFromBlockId);
+  const setConnectionMode = useConnectionStore((state) => state.setConnectionMode);
+  const setSelectedFromBlockId = useConnectionStore((state) => state.setSelectedFromBlockId);
+  const resetConnectionMode = useConnectionStore((state) => state.resetConnectionMode);
 
   // 새 연결 생성 UI 상태 (드롭다운용으로 유지)
   const [showNewConnectionUI, setShowNewConnectionUI] = useState(false);

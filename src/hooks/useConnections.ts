@@ -149,6 +149,7 @@ export const useConnections = () => {
       'vpc': ['subnet'], // VPC → 서브넷
       'subnet': ['ebs', 'ec2', 'security-group', 'load-balancer'], // 서브넷 → 리소스들
       'ebs': ['ec2'], // EBS → EC2 (부트볼륨/블록볼륨)
+      'ec2': ['ebs', 'volume'], // EC2 → EBS/Volume (양방향 허용)
       'volume': ['ec2'], // 볼륨 → EC2
     };
 
@@ -162,14 +163,14 @@ export const useConnections = () => {
         connectionType = 'subnet-ebs'; // 서브넷 → EBS
       } else if (fromType === 'subnet' && toType === 'ec2') {
         connectionType = 'subnet-ec2'; // 서브넷 → EC2
-      } else if (fromType === 'ebs' && toType === 'ec2') {
-        connectionType = 'ebs-ec2-block'; // EBS → EC2 (블록 볼륨, 도로 연결)
+      } else if ((fromType === 'ebs' && toType === 'ec2') || (fromType === 'ec2' && toType === 'ebs')) {
+        connectionType = 'ebs-ec2-block'; // EBS ↔ EC2 (블록 볼륨, 양방향)
       } else if (fromType === 'subnet' && toType === 'security-group') {
         connectionType = 'subnet-security-group'; // 서브넷 → 보안그룹
       } else if (fromType === 'subnet' && toType === 'load-balancer') {
         connectionType = 'subnet-load-balancer'; // 서브넷 → 로드밸런서
-      } else if (fromType === 'volume' && toType === 'ec2') {
-        connectionType = 'volume-ec2'; // 볼륨 → EC2
+      } else if ((fromType === 'volume' && toType === 'ec2') || (fromType === 'ec2' && toType === 'volume')) {
+        connectionType = 'ec2-volume'; // EC2 ↔ Volume (양방향)
       } else {
         connectionType = `${fromType}-${toType}` as ConnectionType;
       }
@@ -276,8 +277,8 @@ export const useConnections = () => {
         console.log('💾 [CONNECTIONS] Additional block storage relationship created via road connection');
       }
 
-      // EBS와 EC2 간의 도로 연결인지 확인 (블록 볼륨)
-      if (fromBlock.type === 'ebs' && toBlock.type === 'ec2') {
+      // EBS와 EC2 간의 도로 연결인지 확인 (블록 볼륨) - 양방향 지원
+      if ((fromBlock.type === 'ebs' && toBlock.type === 'ec2') || (fromBlock.type === 'ec2' && toBlock.type === 'ebs')) {
         connectionProperties = {
           volumeType: 'additional',
           description: 'Block Volume (Manual Road Connection)'

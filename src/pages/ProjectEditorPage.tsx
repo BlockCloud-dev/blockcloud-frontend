@@ -75,11 +75,13 @@ function ProjectEditorPage() {
     activeTab,
     setActiveTab,
     setGeneratedCode,
-    isConnectionMode,
-    selectedFromBlockId,
-    setSelectedFromBlockId,
-    resetConnectionMode,
   } = useUIStore();
+
+  // 통합된 연결 모드 상태 (ConnectionStore에서 가져옴)
+  const isConnectionMode = useConnectionStore((state) => state.isConnectionMode);
+  const selectedFromBlockId = useConnectionStore((state) => state.selectedFromBlockId);
+  const setSelectedFromBlockId = useConnectionStore((state) => state.setSelectedFromBlockId);
+  const resetConnectionMode = useConnectionStore((state) => state.resetConnectionMode);
 
   const { projectName, currentCSP } = useProjectStore();
 
