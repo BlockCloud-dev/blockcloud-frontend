@@ -27,8 +27,8 @@ import {
 // 프로젝트 관리 유틸
 import {
   saveProject,
+  downloadProject,
   loadProjectFromFile,
-  saveProjectToLocalStorage,
   loadProjectFromLocalStorage,
 } from "../utils/projectManager";
 import { snapToGrid } from "../utils/snapGrid";
@@ -900,12 +900,13 @@ function ProjectEditorPage() {
       `${currentCSP} 인프라 프로젝트`
     );
 
-    // localStorage에 저장
-    const key = `project_${Date.now()}`;
-    if (saveProjectToLocalStorage(projectData, key)) {
-      alert("프로젝트가 저장되었습니다.");
-    } else {
-      alert("프로젝트 저장에 실패했습니다.");
+    // JSON 파일로 다운로드
+    try {
+      downloadProject(projectData);
+      alert("프로젝트가 JSON 파일로 다운로드되었습니다.");
+    } catch (error) {
+      console.error('프로젝트 다운로드 실패:', error);
+      alert("프로젝트 다운로드에 실패했습니다.");
     }
   };
 
