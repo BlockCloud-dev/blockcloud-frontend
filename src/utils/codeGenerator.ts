@@ -114,23 +114,24 @@ provider "aws" {
     subnets.forEach((subnet) => {
       const subnetId = subnet.id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
 
-      // 연결된 VPC 찾기 (물리적 스택킹 연결만 사용)
+      // 연결된 VPC 찾기 (물리적 스택킹 연결 사용)
       let vpcRef = '"vpc-12345"';
       console.log(
         "🔍 [Subnet] Looking for VPC connection for subnet:",
         subnet.id
       );
 
+      // VPC-Subnet 연결 찾기 (VPC가 from, 서브넷이 to)
       const vpcConnection = connections.find(
         (conn) =>
-          conn.fromBlockId === subnet.id && conn.connectionType === "vpc-subnet"
+          conn.toBlockId === subnet.id && conn.connectionType === "vpc-subnet"
       );
 
       console.log("🔍 [Subnet] VPC connection found:", vpcConnection);
 
       if (vpcConnection) {
         const connectedVpc = blocks.find(
-          (block) => block.id === vpcConnection.toBlockId
+          (block) => block.id === vpcConnection.fromBlockId // VPC는 fromBlockId에 있음
         );
         console.log("🔍 [Subnet] Connected VPC block:", connectedVpc);
         if (connectedVpc) {
@@ -140,10 +141,18 @@ provider "aws" {
           console.log("✅ [Subnet] VPC reference set to:", vpcRef);
         }
       } else {
-        console.log(
-          "❌ [Subnet] No VPC connection found, using fallback:",
-          vpcRef
-        );
+        // 연결이 없으면 첫 번째 VPC를 사용
+        if (vpcs.length > 0) {
+          vpcRef = `aws_vpc.${vpcs[0].id
+            .replace(/[^a-zA-Z0-9_]/g, "_")
+            .toLowerCase()}.id`;
+          console.log("🔄 [Subnet] Using first available VPC:", vpcRef);
+        } else {
+          console.log(
+            "❌ [Subnet] No VPC connection found and no VPCs available, using fallback:",
+            vpcRef
+          );
+        }
       }
 
       code += `resource "aws_subnet" "${subnetId}" {
@@ -169,21 +178,43 @@ provider "aws" {
     ec2Instances.forEach((ec2) => {
       const ec2Id = ec2.id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
 
-      // 연결된 서브넷 찾기 (연결 정보만 사용)
+      // 연결된 서브넷 찾기 (서브넷이 from, EC2가 to)
       let subnetRef = '"subnet-12345"';
+      console.log(
+        "🔍 [EC2] Looking for subnet connection for EC2:",
+        ec2.id
+      );
+
       const subnetConnection = connections.find(
         (conn) =>
-          conn.fromBlockId === ec2.id && conn.connectionType === "subnet-ec2"
+          conn.toBlockId === ec2.id && conn.connectionType === "subnet-ec2"
       );
+
+      console.log("🔍 [EC2] Subnet connection found:", subnetConnection);
 
       if (subnetConnection) {
         const connectedSubnet = blocks.find(
-          (block) => block.id === subnetConnection.toBlockId
+          (block) => block.id === subnetConnection.fromBlockId // 서브넷은 fromBlockId에 있음
         );
+        console.log("🔍 [EC2] Connected subnet block:", connectedSubnet);
         if (connectedSubnet) {
           subnetRef = `aws_subnet.${connectedSubnet.id
             .replace(/[^a-zA-Z0-9_]/g, "_")
             .toLowerCase()}.id`;
+          console.log("✅ [EC2] Subnet reference set to:", subnetRef);
+        }
+      } else {
+        // 연결이 없으면 첫 번째 서브넷을 사용
+        if (subnets.length > 0) {
+          subnetRef = `aws_subnet.${subnets[0].id
+            .replace(/[^a-zA-Z0-9_]/g, "_")
+            .toLowerCase()}.id`;
+          console.log("🔄 [EC2] Using first available subnet:", subnetRef);
+        } else {
+          console.log(
+            "❌ [EC2] No subnet connection found and no subnets available, using fallback:",
+            subnetRef
+          );
         }
       }
 
@@ -296,43 +327,59 @@ provider "aws" {
     securityGroups.forEach((sg) => {
       const sgId = sg.id.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
 
-      // VPC 참조 - 스택킹 연결 정보 우선 사용
+      // VPC 참조 - 연결 정보 우선 사용
       let vpcRef = '"vpc-12345"';
+      console.log(
+        "🔍 [SecurityGroup] Looking for VPC connection for SG:",
+        sg.id
+      );
 
-      // security-group-subnet 연결에서 서브넷을 찾고, 그 서브넷의 VPC 찾기
+      // security-group과 subnet 연결 찾기 (서브넷이 from, 보안그룹이 to)
       const subnetConnection = connections.find(
         (conn) =>
-          conn.fromBlockId === sg.id &&
+          conn.toBlockId === sg.id &&
           conn.connectionType === "subnet-security-group"
       );
 
+      console.log("🔍 [SecurityGroup] Subnet connection found:", subnetConnection);
+
       if (subnetConnection) {
         const connectedSubnet = blocks.find(
-          (block) => block.id === subnetConnection.toBlockId
+          (block) => block.id === subnetConnection.fromBlockId // 서브넷은 fromBlockId에 있음
         );
+        console.log("🔍 [SecurityGroup] Connected subnet block:", connectedSubnet);
         if (connectedSubnet) {
-          // 서브넷의 VPC 연결 찾기
+          // 서브넷의 VPC 연결 찾기 (VPC가 from, 서브넷이 to)
           const subnetVpcConnection = connections.find(
             (conn) =>
-              conn.fromBlockId === connectedSubnet.id &&
+              conn.toBlockId === connectedSubnet.id &&
               conn.connectionType === "vpc-subnet"
           );
+          console.log("🔍 [SecurityGroup] Subnet VPC connection found:", subnetVpcConnection);
           if (subnetVpcConnection) {
             const connectedVpc = blocks.find(
-              (block) => block.id === subnetVpcConnection.toBlockId
+              (block) => block.id === subnetVpcConnection.fromBlockId // VPC는 fromBlockId에 있음
             );
+            console.log("🔍 [SecurityGroup] Connected VPC block:", connectedVpc);
             if (connectedVpc) {
               vpcRef = `aws_vpc.${connectedVpc.id
                 .replace(/[^a-zA-Z0-9_]/g, "_")
                 .toLowerCase()}.id`;
+              console.log("✅ [SecurityGroup] VPC reference set to:", vpcRef);
             }
           }
         }
       } else if (vpcs.length > 0) {
-        // 스택킹 연결이 없으면 첫 번째 VPC 사용
+        // 연결이 없으면 첫 번째 VPC 사용
         vpcRef = `aws_vpc.${vpcs[0].id
           .replace(/[^a-zA-Z0-9_]/g, "_")
           .toLowerCase()}.id`;
+        console.log("🔄 [SecurityGroup] Using first available VPC:", vpcRef);
+      } else {
+        console.log(
+          "❌ [SecurityGroup] No VPC connection found and no VPCs available, using fallback:",
+          vpcRef
+        );
       }
 
       // 인그레스/이그레스 규칙 처리
