@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../router/routes";
 import { useAuth } from "../../stores/authStore";
+import CreateProjectModal from "../ui/ProjectCreateModal";
 
 export interface DashboardHeaderProps {
   onMenuClick: () => void;
@@ -19,10 +20,21 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isLoggingOut = false,
 }) => {
   const navigate = useNavigate();
-  const { isAuthenticated, userName, userEmail } = useAuth();
+  const { isAuthenticated, user, userName, userEmail } = useAuth();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleLogout = () => {
     onLogoutClick();
+  };
+
+  const openCreateModal = () => setIsModalOpen(true);
+  const closeCreateModal = () => setIsModalOpen(false);
+
+  const handleCreateSubmit = (data: { name: string; description: string }) => {
+    // TODO: POST /api/projects로 요청 보내고 응답으로 projectId 저장하기
+    console.log("프로젝트 생성 요청:", data);
+    closeCreateModal();
   };
 
   return (
@@ -37,23 +49,39 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       <div className="flex items-center space-x-4">
         {isAuthenticated ? (
           <>
-            <div className="hidden lg:flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {userName?.[0]?.toUpperCase() ?? "U"}
-                </span>
-              </div>
+            {/* 사용자 정보 표시 */}
+            <div
+              className="hidden lg:flex items-center space-x-3 cursor-pointer"
+              onClick={openCreateModal} // ← 사용자 정보 클릭 시 모달 열기
+            >
+              {user?.imgUrl ? (
+                <img
+                  src={user.imgUrl}
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {userName?.[0]?.toUpperCase() ?? "U"}
+                  </span>
+                </div>
+              )}
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{userName}</p>
                 <p className="text-xs text-gray-500">{userEmail}</p>
               </div>
             </div>
+
+            {/* 설정 버튼 */}
             <button
               onClick={onSettingsClick}
               className="inline-flex items-center p-2 rounded-lg hover:bg-gray-100 transition"
             >
               <Settings className="w-5 h-5 text-gray-600" />
             </button>
+
+            {/* 로그아웃 버튼 */}
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
@@ -75,6 +103,13 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </button>
         )}
       </div>
+
+      {/* 프로젝트 생성 모달 */}
+      <CreateProjectModal
+        isOpen={isModalOpen}
+        onClose={closeCreateModal}
+        onSubmit={handleCreateSubmit}
+      />
     </header>
   );
 };

@@ -3,7 +3,7 @@ export const ROUTES = {
   // 공개 라우트
   HOME: "/",
   LOGIN: "/login",
-  LOGIN_SUCCESS: "/login/success",
+  LOGIN_SUCCESS: "/oauth2/callback",
   REGISTER: "/register",
 
   // 인증 필요 라우트

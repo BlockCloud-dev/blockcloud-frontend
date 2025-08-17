@@ -4,13 +4,13 @@
 
 // 사용자 정보 타입
 export interface User {
-  id: string;
+  id: string | number;
+  username: string;
   email: string;
-  name: string;
-  profileImageUrl?: string;
-  provider: 'google' | 'email';
-  createdAt: string;
-  updatedAt: string;
+  imgUrl?: string;
+  role: string;
+  createdAt?: string | number[];
+  updatedAt?: string | number[];
 }
 
 // 로그인 응답 타입

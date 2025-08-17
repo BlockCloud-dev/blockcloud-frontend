@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Save, FolderOpen } from "lucide-react";
+import { Save } from "lucide-react";
 import { useProjectStore } from "../../stores";
+import { useAuth } from "../../stores/authStore";
+import { useNavigate } from "react-router-dom";
 
-interface MainHeaderProps {
+const MainHeader: React.FC<{
   onLoadProject: () => void;
   onSaveProject: () => void;
-  userName: string;
-  userImageUrl: string;
-}
+}> = ({ onLoadProject, onSaveProject }) => {
+  const { userName, userImage } = useAuth();
+  const navigate = useNavigate();
 
-const MainHeader: React.FC<MainHeaderProps> = ({
-  onLoadProject,
-  onSaveProject,
-  userName,
-  userImageUrl,
-}) => {
-  // Zustand에서 필요한 상태만 구독
+  const projectId = useProjectStore((state) => state.projectId);
   const projectName = useProjectStore((state) => state.projectName);
+  const description = useProjectStore((state) => state.description);
   const currentCSP = useProjectStore((state) => state.currentCSP);
+
   const setProjectName = useProjectStore((state) => state.setProjectName);
   const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
   const newProject = useProjectStore((state) => state.newProject);
@@ -29,11 +27,38 @@ const MainHeader: React.FC<MainHeaderProps> = ({
     setTempName(projectName);
   }, [projectName]);
 
-  const handleNameSubmit = () => {
-    if (tempName.trim() !== "" && tempName !== projectName) {
-      setProjectName(tempName.trim());
+  const handleNameSubmit = async () => {
+    const trimmed = tempName.trim();
+    setEditingName(false); // 먼저 편집 모드 종료
+
+    // 이름이 변경되지 않았거나 빈 문자열이면 무시
+    if (!trimmed || trimmed === projectName || !projectId) return;
+
+    // UI 상 즉시 업데이트 (optimistic update)
+    setProjectName(trimmed);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        body: JSON.stringify({
+          name: trimmed,
+          description,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`(${response.status}) 서버 응답 오류`);
+      }
+
+      // 필요 시 서버 응답에서 name을 다시 읽어 동기화 가능
+    } catch (err: any) {
+      alert("❌ 제목 저장 실패: " + err.message);
+      setTempName(projectName); // 실패 시 원래 이름으로 복구
     }
-    setEditingName(false);
   };
 
   const handleCSPChange = (csp: "AWS" | "GCP" | "Azure") => {
@@ -46,9 +71,8 @@ const MainHeader: React.FC<MainHeaderProps> = ({
 
   return (
     <header className="w-full bg-white border-b border-gray-200 px-4 py-3 shadow-sm flex items-center justify-between z-50">
-      {/* 좌측: 로고 + 이름 + CSP + 상태 */}
+      {/* 좌측: 로고 + 이름 + CSP */}
       <div className="flex items-center space-x-4">
-        {/* 로고 */}
         <img
           src="/BlockCloud-logo.png"
           alt="BlockCloud logo"
@@ -77,47 +101,38 @@ const MainHeader: React.FC<MainHeaderProps> = ({
         {/* CSP 선택 */}
         <select
           value={currentCSP}
-          onChange={(e) => handleCSPChange(e.target.value as "AWS" | "GCP" | "Azure")}
+          onChange={(e) =>
+            handleCSPChange(e.target.value as "AWS" | "GCP" | "Azure")
+          }
           className="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-md border-none outline-none cursor-pointer"
         >
           <option value="AWS">AWS</option>
           <option value="GCP">GCP</option>
           <option value="Azure">Azure</option>
         </select>
-
-        {/* 상태 표시 */}
-        {/* <span className="text-green-600 text-sm font-medium ml-2">
-          ● Healthy
-        </span> */}
       </div>
 
-      {/* 우측: 새 프로젝트/저장/열기 + 사용자 */}
+      {/* 우측: 버튼 + 사용자 */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
           <button
-            onClick={handleNewProject}
+            onClick={() => navigate("/dashboard")}
             className="flex items-center text-sm px-3 py-1.5 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700"
           >
-            새 프로젝트
-          </button>
-          <button
-            onClick={onLoadProject}
-            className="flex items-center text-sm px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
-          >
-            <FolderOpen className="w-4 h-4 mr-1" />프로젝트 열기
+            목록으로 이동
           </button>
           <button
             onClick={onSaveProject}
             className="flex items-center text-sm px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
             <Save className="w-4 h-4 mr-1" />
-            저장
+            프로젝트 저장
           </button>
         </div>
 
         <div className="flex items-center space-x-2">
           <img
-            src={userImageUrl}
+            src={userImage}
             alt="user"
             className="w-8 h-8 rounded-full object-cover"
           />

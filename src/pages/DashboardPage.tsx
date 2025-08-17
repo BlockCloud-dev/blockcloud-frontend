@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { ROUTES } from "../router/routes";
+import { ROUTES } from "../../router/routes";
 import ProjectCard from "../components/ui/ProjectCard";
+import CreateProjectModal from "../components/ui/ProjectCreateModal";
+import { apiFetch } from "../utils/apiClients";
 
 interface Project {
   id: string;
@@ -19,10 +21,10 @@ const DashboardPage: React.FC = () => {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // 검색어 & 정렬 상태
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -30,57 +32,60 @@ const DashboardPage: React.FC = () => {
 
   const loadProjects = async () => {
     setIsLoading(true);
-    // TODO: 실제 API 호출로 교체
-    const now = Date.now();
-    const mock: Project[] = [
-      {
-        id: "project-preview",
-        name: "Mobile Banking App",
-        previewText: "프로젝트 미리보기",
-        updatedAt: new Date(now - 2 * 3600 * 1000).toISOString(),
-        createdAt: new Date(now - 5 * 3600 * 1000).toISOString(),
-        blocksCount: 8,
-        connectionsCount: 12,
-      },
-      {
-        id: "project-2",
-        name: "E‑commerce Platform",
-        previewText: "프로젝트 미리보기",
-        updatedAt: new Date(now - 24 * 3600 * 1000).toISOString(),
-        createdAt: new Date(now - 48 * 3600 * 1000).toISOString(),
-        blocksCount: 10,
-        connectionsCount: 18,
-      },
-      {
-        id: "project-3",
-        name: "Analytics Dashboard",
-        previewText: "프로젝트 미리보기",
-        updatedAt: new Date(now - 3 * 24 * 3600 * 1000).toISOString(),
-        createdAt: new Date(now - 5 * 24 * 3600 * 1000).toISOString(),
-        blocksCount: 12,
-        connectionsCount: 20,
-      },
-      {
-        id: "project-4",
-        name: "Social Media App",
-        previewText: "프로젝트 미리보기",
-        updatedAt: new Date(now - 5 * 24 * 3600 * 1000).toISOString(),
-        createdAt: new Date(now - 10 * 24 * 3600 * 1000).toISOString(),
-        blocksCount: 7,
-        connectionsCount: 9,
-      },
-    ];
-    setProjects(mock);
-    setIsLoading(false);
+    try {
+      const res = await apiFetch("/api/projects?size=8");
+      const projectsFromApi = res?.data?.projects ?? [];
+
+      const parsed: Project[] = projectsFromApi.map((proj: any) => ({
+        id: String(proj.id),
+        name: proj.name,
+        previewText: proj.description || "설명 없음",
+        createdAt: proj.createdAt,
+        updatedAt: proj.updatedAt,
+        blocksCount: 0,
+        connectionsCount: 0,
+      }));
+
+      setProjects(parsed);
+    } catch (error: any) {
+      console.error("❌ 프로젝트 목록 로딩 실패:", error);
+      alert("프로젝트 목록을 불러오지 못했습니다: " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCreateProject = () => {
-    navigate(ROUTES.PROJECT_NEW);
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
   };
-  // 필터링 및 정렬
+
+  const handleCreateProject = async (name: string, description: string) => {
+    setIsCreating(true);
+    try {
+      const response = await apiFetch("/api/projects", {
+        method: "POST",
+        body: JSON.stringify({ name, description }),
+      });
+
+      const project = response.data;
+
+      if (project?.id) {
+        await loadProjects();
+        setIsModalOpen(false);
+      } else {
+        throw new Error("프로젝트 생성 응답이 올바르지 않습니다.");
+      }
+    } catch (err: any) {
+      alert("프로젝트 생성 실패: " + err.message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const filtered = projects.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
   const sorted = [...filtered].sort((a, b) => {
     const ta = new Date(a.createdAt).getTime();
     const tb = new Date(b.createdAt).getTime();
@@ -89,16 +94,12 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Main Area */}
       <div className="flex-1 flex flex-col">
-        {/* Body */}
         <main className="flex-1 overflow-y-auto px-6 py-8">
-          {/* Title */}
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
             Recent Projects
           </h2>
 
-          {/* Search, Sort, New Project */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3">
               <input
@@ -119,8 +120,9 @@ const DashboardPage: React.FC = () => {
                 <option value="oldest">오래된 순</option>
               </select>
             </div>
+
             <button
-              onClick={handleCreateProject}
+              onClick={handleOpenModal}
               className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
             >
               <Plus className="w-5 h-5 mr-2" />
@@ -143,7 +145,7 @@ const DashboardPage: React.FC = () => {
                 첫 번째 프로젝트를 만들어보세요
               </p>
               <button
-                onClick={handleCreateProject}
+                onClick={handleOpenModal}
                 className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
               >
                 <Plus className="w-5 h-5 mr-2" />새 프로젝트 만들기
@@ -165,6 +167,16 @@ const DashboardPage: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* 새 프로젝트 생성 모달 */}
+      {isModalOpen && (
+        <CreateProjectModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateProject}
+          isSubmitting={isCreating}
+        />
+      )}
     </div>
   );
 };

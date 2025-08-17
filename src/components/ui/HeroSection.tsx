@@ -16,15 +16,15 @@ const HeroSection: React.FC = () => {
   };
 
   return (
-    <section className="px-8 py-12">
+    <section className="px-8 py-12 flex items-center justify-center min-h-screen">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         <div>
           <h1 className="text-4xl lg:text-5xl font-extrabold text-gray-900">
             블록 기반 인프라 시각화
           </h1>
-          <p className="mt-4 text-lg text-gray-500">
-            인프라 요소를 모듈식 블록으로 간편하게 구성하고, 한 번의 클릭으로
-            배포하세요.
+          <p className="mt-6 text-xl text-gray-600 leading-relaxed">
+            인프라 구성요소를 모듈 블록처럼 쌓고, <br />
+            코드 없이 한 번의 클릭으로 배포하세요.
           </p>
           <div className="mt-6 flex space-x-4">
             <button

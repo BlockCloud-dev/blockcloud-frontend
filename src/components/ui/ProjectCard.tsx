@@ -25,6 +25,7 @@ export interface ProjectCardProps {
   previewText?: string;
   updatedAt: string;
   index: number;
+  onClick?: () => void;
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({
@@ -39,7 +40,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
   return (
     <div
-      onClick={() => navigate(createProjectEditorRoute(id))}
+      onClick={() =>
+        navigate(createProjectEditorRoute(id), {
+          state: { projectName: name },
+        })
+      }
       className="rounded-lg overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-[1.02]"
     >
       <div

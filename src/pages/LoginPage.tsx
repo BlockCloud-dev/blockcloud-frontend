@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import toast from "react-hot-toast";
+// LoginPage.tsx
+import React, { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../router/routes";
 import { useAuth } from "../stores/authStore";
 
@@ -11,56 +11,32 @@ const LoginPage: React.FC = () => {
 
   const {
     loginWithGoogle,
-    loginWithEmail,
     isLoading: authLoading,
-    error,
     clearError,
+    isAuthenticated,
   } = useAuth();
 
-  const [emailForm, setEmailForm] = useState({
-    email: "test@blockcloud.dev",
-    password: "test123",
-  });
-
-  const handleGoogleLogin = async () => {
-    clearError();
-    const toastId = toast.loading("로그인 중입니다…");
-    try {
-      await loginWithGoogle();
-      toast.success("로그인 되었습니다.", { id: toastId });
-      navigate(redirectPath);
-    } catch (err) {
-      console.error("Google 로그인 실패:", err);
-      toast.error("로그인에 실패했습니다.", { id: toastId });
+  // 이미 로그인 상태면 즉시 리다이렉트
+  useEffect(() => {
+    if (isAuthenticated) {
+      const target =
+        sessionStorage.getItem("postLoginRedirect") || redirectPath;
+      sessionStorage.removeItem("postLoginRedirect");
+      navigate(target, { replace: true });
     }
-  };
+  }, [isAuthenticated, navigate, redirectPath]);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = () => {
     clearError();
-    const toastId = toast.loading("로그인 중입니다…");
-    try {
-      await loginWithEmail(emailForm);
-      toast.success("로그인 되었습니다.", { id: toastId });
-      navigate(redirectPath);
-    } catch (err) {
-      console.error("이메일 로그인 실패:", err);
-      toast.error("로그인에 실패했습니다.", { id: toastId });
-    }
-  };
-
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmailForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    sessionStorage.setItem("postLoginRedirect", redirectPath);
+    loginWithGoogle();
   };
 
   const isLoading = authLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+      <div className="max-w-md w-full space-y-10 bg-white px-10 py-30 border border-gray-300 rounded-2xl shadow-lg bg-white">
         <div className="text-center">
           <img
             src="/BlockCloud-logo.png"
@@ -72,7 +48,7 @@ const LoginPage: React.FC = () => {
           </h2>
           <p className="text-gray-600">3D 인프라 빌더를 시작하세요</p>
         </div>
-
+        <hr className="gray-900" />
         <div className="space-y-6">
           <button
             onClick={handleGoogleLogin}
@@ -99,102 +75,6 @@ const LoginPage: React.FC = () => {
             </svg>
             {isLoading ? "로그인 중..." : "Google로 로그인"}
           </button>
-
-          {/* 구분선 */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">또는</span>
-            </div>
-          </div>
-
-          {/* 이메일 로그인 폼 */}
-          <form onSubmit={handleEmailLogin} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                이메일
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={emailForm.email}
-                onChange={handleEmailChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="test@blockcloud.dev"
-                required
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                비밀번호
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={emailForm.password}
-                onChange={handleEmailChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="test123"
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "로그인 중..." : "이메일로 로그인"}
-            </button>
-          </form>
-
-          {/* 테스트 계정 안내 */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700">
-              <strong>테스트 계정:</strong>
-              <br />
-              이메일: test@blockcloud.dev
-              <br />
-              비밀번호: test123
-            </p>
-          </div>
-        </div>
-
-        {/* 하단 링크 */}
-        <div className="text-center text-sm">
-          <p className="text-gray-600">
-            계정이 없으신가요?{" "}
-            <Link
-              to={ROUTES.REGISTER}
-              className="text-blue-600 hover:text-blue-500 font-medium"
-            >
-              회원가입
-            </Link>
-          </p>
-          <p className="mt-2">
-            <Link
-              to={ROUTES.HOME}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ← 홈으로 돌아가기
-            </Link>
-          </p>
         </div>
       </div>
     </div>
