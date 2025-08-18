@@ -1,7 +1,8 @@
 // src/components/ui/ProjectCard.tsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { createProjectEditorRoute, ROUTES } from "../../router/routes";
+import { Trash2 } from "lucide-react";
+import { createProjectEditorRoute } from "../../router/routes";
 
 const GRADIENTS = [
   "from-blue-200 to-blue-400",
@@ -25,7 +26,8 @@ export interface ProjectCardProps {
   previewText?: string;
   updatedAt: string;
   index: number;
-  onClick?: () => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({
@@ -34,24 +36,49 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   previewText,
   updatedAt,
   index,
+  onDelete,
+  isDeleting = false,
 }) => {
   const navigate = useNavigate();
   const gradient = GRADIENTS[index % GRADIENTS.length];
 
+  const handleClick = () => {
+    if (!isDeleting) {
+      navigate(createProjectEditorRoute(id), {
+        state: { projectName: name },
+      });
+    }
+  };
+
   return (
     <div
-      onClick={() =>
-        navigate(createProjectEditorRoute(id), {
-          state: { projectName: name },
-        })
-      }
-      className="rounded-lg overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-[1.02]"
+      onClick={handleClick}
+      className="relative rounded-lg overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-[1.02] group"
     >
+      {/* 삭제 버튼 */}
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation(); // 클릭 이벤트 전파 방지
+            onDelete();
+          }}
+          disabled={isDeleting}
+          title="프로젝트 삭제"
+          className="absolute top-2 right-2 z-10 bg-white p-1 rounded-md border border-gray-300 hover:border-red-400 hover:text-red-600 text-gray-500 transition disabled:opacity-50"
+        >
+          {isDeleting ? (
+            <div className="w-4 h-4 border-2 border-b-transparent border-gray-400 rounded-full animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+        </button>
+      )}
+
       <div
         className={`h-40 bg-gradient-to-br ${gradient} flex items-center justify-center`}
       >
         {previewText && (
-          <span className="text-lg font-medium text-gray-800">
+          <span className="text-lg font-medium text-gray-800 text-center px-2">
             {previewText}
           </span>
         )}

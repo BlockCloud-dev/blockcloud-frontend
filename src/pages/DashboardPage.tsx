@@ -25,6 +25,7 @@ const DashboardPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set()); // 👈 추가
 
   useEffect(() => {
     loadProjects();
@@ -49,7 +50,10 @@ const DashboardPage: React.FC = () => {
       setProjects(parsed);
     } catch (error: any) {
       console.error("❌ 프로젝트 목록 로딩 실패:", error);
-      alert("프로젝트 목록을 불러오지 못했습니다: " + error.message);
+      alert(
+        "프로젝트 목록을 불러오지 못했습니다: " +
+          (error?.message ?? "unknown error")
+      );
     } finally {
       setIsLoading(false);
     }
@@ -76,9 +80,38 @@ const DashboardPage: React.FC = () => {
         throw new Error("프로젝트 생성 응답이 올바르지 않습니다.");
       }
     } catch (err: any) {
-      alert("프로젝트 생성 실패: " + err.message);
+      alert("프로젝트 생성 실패: " + (err?.message ?? "unknown error"));
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // 👇 삭제 함수 추가
+  const handleDeleteProject = async (projectId: string) => {
+    const ok = window.confirm(
+      "정말 이 프로젝트를 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다."
+    );
+    if (!ok) return;
+
+    setDeletingIds((prev) => new Set(prev).add(projectId)); // 진행중 표시
+    try {
+      await apiFetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+
+      // 성공 시 로컬 목록에서 제거 (재조회 없이 낙관적 업데이트)
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err: any) {
+      console.error("❌ 프로젝트 삭제 실패:", err);
+      alert(
+        "프로젝트 삭제에 실패했습니다: " + (err?.message ?? "unknown error")
+      );
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
     }
   };
 
@@ -161,6 +194,8 @@ const DashboardPage: React.FC = () => {
                   previewText={proj.previewText}
                   updatedAt={proj.updatedAt}
                   index={idx}
+                  onDelete={() => handleDeleteProject(proj.id)} // 👈 추가
+                  isDeleting={deletingIds.has(proj.id)} // 👈 추가
                 />
               ))}
             </div>
@@ -168,7 +203,6 @@ const DashboardPage: React.FC = () => {
         </main>
       </div>
 
-      {/* 새 프로젝트 생성 모달 */}
       {isModalOpen && (
         <CreateProjectModal
           isOpen={isModalOpen}
