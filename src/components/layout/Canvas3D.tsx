@@ -7,7 +7,7 @@ import { BlockRenderer } from "./BlockRenderer";
 import { useDragAndDrop } from "./useDragAndDrop";
 import { useStacking } from "./useStacking";
 import { useConnections } from "./useConnections";
-import { useUIStore } from "../../stores";
+import { useConnectionStore } from "../../stores";
 import type { Canvas3DProps } from "./Canvas3DTypes";
 
 export function Canvas3D({
@@ -40,11 +40,9 @@ export function Canvas3D({
 }: Canvas3DProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // 연결 모드 상태 가져오기
-  const isConnectionMode = useUIStore((state) => state.isConnectionMode);
-  const selectedFromBlockId = useUIStore((state) => state.selectedFromBlockId);
-
-  // 블록 드래그 상태 관리 (카메라 컨트롤 비활성화용)
+  // 연결 모드 상태 (ConnectionStore에서 가져옴)
+  const isConnectionMode = useConnectionStore((state) => state.isConnectionMode);
+  const selectedFromBlockId = useConnectionStore((state) => state.selectedFromBlockId);  // 블록 드래그 상태 관리 (카메라 컨트롤 비활성화용)
   const [isAnyBlockDragging, setIsAnyBlockDragging] = useState(false);
 
   // 드래그 앤 드롭 로직

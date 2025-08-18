@@ -6,32 +6,51 @@ import { useNavigate } from "react-router-dom"; // ✅ 추가
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onSubmit?: (name: string, description: string) => Promise<void>;
+  isSubmitting?: boolean;
 }
 
-const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose }) => {
+const CreateProjectModal: React.FC<Props> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  isSubmitting = false 
+}) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate(); // ✅ 추가
+  const navigate = useNavigate();
 
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const project = await createProject(name, description); // <- { id, name, ... } 반환
-      // ✅ 생성 성공하면 바로 상세 페이지로 이동
-      navigate(`/project/${project.id}`);
-      // 필요하면 모달 닫기
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "생성 실패");
-    } finally {
-      setLoading(false);
+    if (onSubmit) {
+      // 외부에서 onSubmit을 제공한 경우
+      try {
+        await onSubmit(name, description);
+        setName("");
+        setDescription("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "생성 실패");
+      }
+    } else {
+      // 기본 동작
+      setLoading(true);
+      setError(null);
+      try {
+        const project = await createProject(name, description);
+        navigate(`/project/${project.id}`);
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "생성 실패");
+      } finally {
+        setLoading(false);
+      }
     }
   };
+
+  const isCurrentlyLoading = isSubmitting || loading;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50">
@@ -57,10 +76,10 @@ const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={isCurrentlyLoading}
             className="px-4 py-2 rounded bg-blue-600 text-white"
           >
-            {loading ? "생성 중..." : "생성"}
+            {isCurrentlyLoading ? "생성 중..." : "생성"}
           </button>
         </div>
       </div>

@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { ROUTES } from "../../router/routes";
 import ProjectCard from "../components/ui/ProjectCard";
 import CreateProjectModal from "../components/ui/ProjectCreateModal";
 import { apiFetch } from "../utils/apiClients";
@@ -17,8 +15,6 @@ interface Project {
 }
 
 const DashboardPage: React.FC = () => {
-  const navigate = useNavigate();
-
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");

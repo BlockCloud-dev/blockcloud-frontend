@@ -24,7 +24,7 @@ interface Deployment {
 
 const statusStyleMap: Record<
   string,
-  { label: string; icon: JSX.Element; colorClass: string; bgClass: string }
+  { label: string; icon: React.ReactElement; colorClass: string; bgClass: string }
 > = {
   SUCCESS: {
     label: "배포 성공",

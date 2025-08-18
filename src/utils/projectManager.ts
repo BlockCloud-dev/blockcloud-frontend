@@ -2,7 +2,7 @@ import { Vector3 } from "three";
 import type { DroppedBlock, Connection } from "../types/blocks";
 
 export interface ProjectData {
-  id: number | null | undefined;
+  id?: number | null;
   name: string;
   description?: string;
   version: string;

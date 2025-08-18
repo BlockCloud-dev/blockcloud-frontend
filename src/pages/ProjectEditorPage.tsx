@@ -7,7 +7,6 @@ import { TabHeader } from "../components/ui/TabHeader";
 import { ConnectionsPanel } from "../components/ui/ConnectionsPanel";
 import { Vector3 } from "three";
 import type { DroppedBlock } from "../types/blocks";
-import type { ProjectData } from "../utils/projectManager";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { generateTerraformCode } from "../utils/codeGenerator";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
@@ -21,17 +20,9 @@ import {
   useUIStore,
   useProjectStore,
   useResetAllStores,
-  useLoadProject,
   useStackingStore,
 } from "../stores";
 
-// 프로젝트 관리 유틸
-import {
-  saveProject,
-  downloadProject,
-  loadProjectFromFile,
-  loadProjectFromLocalStorage,
-} from "../utils/projectManager";
 import { snapToGrid } from "../utils/snapGrid";
 import { apiFetch } from "../utils/apiClients";
 import { useLocation, useParams } from "react-router-dom";
@@ -110,7 +101,6 @@ function ProjectEditorPage() {
 
   // 헬퍼 훅들
   const resetAllStores = useResetAllStores();
-  const loadProjectData = useLoadProject();
 
   // 새로운 스태킹 시스템 import
   const {
@@ -998,19 +988,6 @@ function ProjectEditorPage() {
   };
 
   // 프로젝트 관리 핸들러
-  const handleLoadProject = (projectData: ProjectData) => {
-    loadProjectData(projectData);
-    console.log(
-      "🔄 Project loaded:",
-      projectData.name,
-      "with",
-      projectData.blocks.length,
-      "blocks and",
-      projectData.connections.length,
-      "connections"
-    );
-  };
-
   const handleNewProject = () => {
     resetAllStores();
     console.log("🆕 New project created");
@@ -1037,35 +1014,6 @@ function ProjectEditorPage() {
     } catch (err) {
       console.error("❌ 저장 실패:", err);
       alert("❌ 저장 중 오류가 발생했습니다.");
-    }
-  };
-
-  const handleQuickLoadProject = () => {
-    // 가장 최근 저장된 프로젝트 로드
-    const recentProject = loadProjectFromLocalStorage("current_project");
-    if (recentProject) {
-      handleLoadProject(recentProject);
-      alert("프로젝트가 로드되었습니다.");
-    } else {
-      // 파일 로드 다이얼로그 열기
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".json";
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          try {
-            const projectData = await loadProjectFromFile(file);
-            handleLoadProject(projectData);
-            alert("프로젝트가 로드되었습니다.");
-          } catch (error) {
-            alert(
-              "프로젝트 파일을 로드할 수 없습니다: " + (error as Error).message
-            );
-          }
-        }
-      };
-      input.click();
     }
   };
 
@@ -1225,12 +1173,9 @@ function ProjectEditorPage() {
   return (
     <div className="w-full h-screen bg-white flex flex-col overflow-hidden relative">
       {/* 메인 헤더 */}
-      <MainHeader
-        onLoadProject={handleQuickLoadProject}
-        onSaveProject={handleSaveProject}
-      />
-
-      {/* 메인 3-Panel 레이아웃 */}
+        <MainHeader
+          onSaveProject={handleSaveProject}
+        />      {/* 메인 3-Panel 레이아웃 */}
       <div className="flex-1 flex flex-row h-[calc(100vh-120px)] min-w-0">
         {/* 왼쪽 패널 */}
         <ResizablePanel side="left" initialWidth={320}>

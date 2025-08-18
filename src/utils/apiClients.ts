@@ -8,13 +8,22 @@ export const apiFetch = async (
   let accessToken = localStorage.getItem("accessToken");
 
   // 1. 첫 요청
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  
+  // 기존 headers 복사
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
+  
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   let res = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      ...options.headers,
-      Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
-      "Content-Type": "application/json",
-    },
+    headers,
     credentials: "include",
   });
 

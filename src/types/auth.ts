@@ -24,6 +24,7 @@ export interface LoginResponse {
 // 토큰 갱신 응답 타입
 export interface RefreshTokenResponse {
   accessToken: string;
+  refreshToken?: string; // 선택적으로 새로운 refresh token이 포함될 수 있음
   expiresIn: number;
 }
 

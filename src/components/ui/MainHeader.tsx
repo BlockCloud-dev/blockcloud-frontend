@@ -5,9 +5,8 @@ import { useAuth } from "../../stores/authStore";
 import { useNavigate } from "react-router-dom";
 
 const MainHeader: React.FC<{
-  onLoadProject: () => void;
   onSaveProject: () => void;
-}> = ({ onLoadProject, onSaveProject }) => {
+}> = ({ onSaveProject }) => {
   const { userName, userImage } = useAuth();
   const navigate = useNavigate();
 
@@ -18,7 +17,6 @@ const MainHeader: React.FC<{
 
   const setProjectName = useProjectStore((state) => state.setProjectName);
   const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
-  const newProject = useProjectStore((state) => state.newProject);
 
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState(projectName);

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../router/routes";
 import { useAuth } from "../../stores/authStore";
 import CreateProjectModal from "../ui/ProjectCreateModal";
+import * as projectService from "../../services/projectService";
 
 export interface DashboardHeaderProps {
   onMenuClick: () => void;
@@ -31,10 +32,15 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const openCreateModal = () => setIsModalOpen(true);
   const closeCreateModal = () => setIsModalOpen(false);
 
-  const handleCreateSubmit = (data: { name: string; description: string }) => {
-    // TODO: POST /api/projects로 요청 보내고 응답으로 projectId 저장하기
-    console.log("프로젝트 생성 요청:", data);
-    closeCreateModal();
+  const handleCreateSubmit = async (name: string, description: string): Promise<void> => {
+    try {
+      const newProject = await projectService.createProject(name, description);
+      // 성공 후 처리 로직
+      console.log("프로젝트 생성 성공:", newProject);
+      closeCreateModal();
+    } catch (error) {
+      console.error("프로젝트 생성 실패:", error);
+    }
   };
 
   return (

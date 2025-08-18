@@ -11,7 +11,7 @@ interface Props {
 
 const statusMap: Record<
   string,
-  { label: string; icon: JSX.Element; color: string; bg: string }
+  { label: string; icon: React.ReactElement; color: string; bg: string }
 > = {
   SUCCESS: {
     label: "성공",

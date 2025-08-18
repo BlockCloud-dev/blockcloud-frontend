@@ -8,7 +8,7 @@ import { apiFetch } from "../../utils/apiClients"; // 꼭 추가
 
 const AppLayout: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   // 사이드바 열린 상태
   const [sidebarOpen, setSidebarOpen] = useState(false);

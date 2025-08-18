@@ -87,11 +87,9 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
   const selectedCSP = useProjectStore((state) => state.currentCSP);
   const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
 
-  const [search, setSearch] = React.useState("");
-  const [autoScaffold, setAutoScaffold] = React.useState(true);
-  const [selectedCategory, setSelectedCategory] = React.useState<string>(
-    CATEGORY_TABS[0]
-  );
+  // 상태 관리
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [selectedCategory, setSelectedCategory] = React.useState<string>("all");
 
   const getBlocksForCSP = (csp: string) => {
     switch (csp) {
@@ -109,7 +107,7 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
   const filteredBlocks = getBlocksForCSP(selectedCSP).filter(
     (b) =>
       b.category === selectedCategory &&
-      b.name.toLowerCase().includes(search.toLowerCase())
+      b.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -153,8 +151,8 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
           <input
             className="w-full pl-8 pr-3 py-2 rounded-xl bg-gray-100 text-sm text-gray-800 placeholder:text-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200"
             placeholder="Search blocks..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
           <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
         </div>

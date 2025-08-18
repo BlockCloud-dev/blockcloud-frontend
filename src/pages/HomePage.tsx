@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import HeroSection from "../components/ui/HeroSection";
 
 const HomePage: React.FC = () => {
