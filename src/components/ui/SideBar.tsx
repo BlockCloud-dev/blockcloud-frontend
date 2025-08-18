@@ -1,8 +1,12 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FolderIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  FolderIcon,
+  BookOpenIcon,
+  CloudIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { ROUTES } from "../../router/routes";
-
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -11,13 +15,21 @@ interface SidebarProps {
 const navItems = [
   {
     name: "Introduction",
-    to: ROUTES.HOME, // "/"
+    to: ROUTES.HOME,
     disabled: false,
+    icon: BookOpenIcon,
   },
   {
     name: "Projects",
     to: ROUTES.DASHBOARD,
     disabled: false,
+    icon: FolderIcon,
+  },
+  {
+    name: "Deployments",
+    to: ROUTES.DEPLOY_DASHBOARD,
+    disabled: false,
+    icon: CloudIcon, // ✅ 아이콘 변경
   },
 ];
 
@@ -52,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => (
       </div>
       <nav className="flex-1">
         <ul>
-          {navItems.map(({ name, to, disabled }) => (
+          {navItems.map(({ name, to, disabled, icon: Icon }) => (
             <li key={name} className="mb-3">
               <NavLink
                 to={to}
@@ -60,18 +72,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => (
                 onClick={onClose}
                 className={({ isActive }) =>
                   `
-                  flex items-center p-2 rounded-lg
-                  ${
-                    disabled
-                      ? "text-gray-400 cursor-not-allowed"
-                      : isActive
-                      ? "bg-blue-50 text-blue-600 font-semibold"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }
-                  `
+        flex items-center p-2 rounded-lg
+        ${
+          disabled
+            ? "text-gray-400 cursor-not-allowed"
+            : isActive
+            ? "bg-blue-50 text-blue-600 font-semibold"
+            : "text-gray-600 hover:bg-gray-100"
+        }
+        `
                 }
               >
-                <FolderIcon className="h-5 w-5 mr-3" />
+                <Icon className="h-5 w-5 mr-3" />
                 <span>{name}</span>
               </NavLink>
             </li>

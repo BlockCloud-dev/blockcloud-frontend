@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BlockPalette } from "../components/layout/BlockPalette";
 import { Canvas3D } from "../components/layout/Canvas3D";
 import { CodeEditor } from "../components/layout/CodeEditor";
@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { generateTerraformCode } from "../utils/codeGenerator";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
+import toast from "react-hot-toast";
 
 // Zustand 스토어들
 import {
@@ -97,11 +98,15 @@ function ProjectEditorPage() {
 
   const setProjectName = useProjectStore((state) => state.setProjectName);
 
+  const [loadingStatus, setLoadingStatus] = useState<
+    null | "validating" | "deploying"
+  >(null);
+
   useEffect(() => {
     if (projectNameFromNav) {
       setProjectName(projectNameFromNav);
     }
-  }, [projectNameFromNav]);
+  }, [projectNameFromNav, setProjectName]);
 
   // 헬퍼 훅들
   const resetAllStores = useResetAllStores();
@@ -1144,8 +1149,81 @@ function ProjectEditorPage() {
     console.log("📋 Canvas background clicked, clearing selection");
   };
 
+  // ✅ Terraform 코드 생성 함수
+  const buildTerraformCode = (): string => {
+    const derivedConnections = deriveConnectionsFromStacking(droppedBlocks);
+    const nonStackingConnections = connections.filter(
+      (conn) => !conn.properties?.stackConnection
+    );
+    const allConnections = [...nonStackingConnections, ...derivedConnections];
+
+    return generateTerraformCode(droppedBlocks, allConnections);
+  };
+
+  const handleDeployProject = async () => {
+    if (!projectId) {
+      toast.error("⚠️ projectId가 없습니다.");
+      return;
+    }
+
+    if (droppedBlocks.length === 0) {
+      toast.error("❌ 배포할 블록이 없습니다.");
+      return;
+    }
+
+    try {
+      setLoadingStatus("validating"); // ✅ 유효성 검사 시작
+
+      const terraformCode = buildTerraformCode();
+
+      const validateRes = await apiFetch(
+        `/api/projects/${projectId}/terraform/validate`,
+        {
+          method: "POST",
+          body: JSON.stringify({ terraformCode }),
+        }
+      );
+
+      const isValid = validateRes?.data?.valid;
+
+      if (!isValid) {
+        setLoadingStatus(null); // ✅ 중단 시 로딩 종료
+        toast.error(
+          "배포 요건이 충족되지 않았습니다. \n연결 누락 등을 확인하세요."
+        );
+        return;
+      }
+
+      toast.success("🛠️ Terraform 코드가 유효합니다. \n배포를 시작합니다...");
+      setLoadingStatus("deploying"); // ✅ 배포 시작
+
+      const applyRes = await apiFetch(
+        `/api/projects/${projectId}/terraform/apply`,
+        {
+          method: "POST",
+          body: JSON.stringify({ terraformCode }),
+        }
+      );
+
+      const status = applyRes?.data?.status;
+      const message = applyRes?.data?.message;
+
+      if (status === "SUCCESS" || status === "PENDING") {
+        toast.success(`🚀 배포 요청 완료: ${message}`);
+      } else {
+        toast.error(`❌ 배포 실패: ${message}`);
+      }
+    } catch (error: any) {
+      console.error("배포 중 오류:", error);
+      toast.error(`❌ 오류 발생: ${error.message}`);
+    } finally {
+      setLoadingStatus(null); // ✅ 항상 로딩 종료
+    }
+  };
+
+  // ✅ 추가된 로딩 오버레이
   return (
-    <div className="w-full h-screen bg-white flex flex-col overflow-hidden">
+    <div className="w-full h-screen bg-white flex flex-col overflow-hidden relative">
       {/* 메인 헤더 */}
       <MainHeader
         onLoadProject={handleQuickLoadProject}
@@ -1198,10 +1276,11 @@ function ProjectEditorPage() {
             currentDragData={currentDragData}
           />
         </div>
+
         {/* 오른쪽 패널 */}
         <ResizablePanel side="right" initialWidth={340}>
           <div className="h-full w-full flex flex-col overflow-hidden">
-            <TabHeader />
+            <TabHeader onDeploy={handleDeployProject} />
             <div className="flex-1 overflow-y-auto">
               {activeTab === "connections" && <ConnectionsPanel />}
               {activeTab === "code" && <CodeEditor key="code-editor" />}
@@ -1212,6 +1291,7 @@ function ProjectEditorPage() {
           </div>
         </ResizablePanel>
       </div>
+
       {/* 하단 상태바 */}
       <div className="flex-shrink-0 bg-gray-800 border-t border-gray-600 px-6 py-2">
         <div className="flex items-center justify-between text-sm text-gray-400">
@@ -1242,6 +1322,39 @@ function ProjectEditorPage() {
           </div>
         </div>
       </div>
+
+      {/* ✅ 로딩 스피너 오버레이 */}
+      {loadingStatus && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center space-y-4">
+            <svg
+              className="animate-spin h-8 w-8 text-blue-600"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8H4z"
+              ></path>
+            </svg>
+            <p className="text-sm text-gray-700">
+              {loadingStatus === "validating"
+                ? "Terraform 코드 유효성 검사 중..."
+                : "Terraform 배포 중...\n시간이 소요될 수 있습니다."}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

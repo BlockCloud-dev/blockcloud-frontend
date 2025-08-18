@@ -1,13 +1,12 @@
 import React from "react";
-import { Link2, Code, Settings } from "lucide-react";
+import { Link2, Code } from "lucide-react";
 import { useUIStore, useConnectionStore } from "../../stores";
 
 interface TabHeaderProps {
-  // props 없이 Zustand에서 직접 상태 가져오기
+  onDeploy?: () => void; // ✅ 배포 핸들러 prop 추가
 }
 
-export const TabHeader: React.FC<TabHeaderProps> = ({}) => {
-  // Zustand에서 필요한 상태만 구독
+export const TabHeader: React.FC<TabHeaderProps> = ({ onDeploy }) => {
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const connectionCount = useConnectionStore(
@@ -26,11 +25,6 @@ export const TabHeader: React.FC<TabHeaderProps> = ({}) => {
       icon: Code,
       label: "코드",
     },
-    // {
-    //   id: "properties" as const,
-    //   icon: Settings,
-    //   label: "속성",
-    // },
   ];
 
   return (
@@ -39,15 +33,11 @@ export const TabHeader: React.FC<TabHeaderProps> = ({}) => {
         <button
           key={id}
           onClick={() => setActiveTab(id)}
-          className={`
-                        flex items-center px-4 py-3 text-sm font-medium transition-colors
-                        ${
-                          activeTab === id
-                            ? "text-white bg-gray-700 border-b-2 border-blue-400"
-                            : "text-gray-300 hover:text-white hover:bg-gray-700"
-                        }
-                        relative
-                    `}
+          className={`flex items-center px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === id
+              ? "text-white bg-gray-700 border-b-2 border-blue-400"
+              : "text-gray-300 hover:text-white hover:bg-gray-700"
+          } relative`}
         >
           <Icon className="w-4 h-4 mr-2" />
           {label}
@@ -58,14 +48,10 @@ export const TabHeader: React.FC<TabHeaderProps> = ({}) => {
           )}
         </button>
       ))}
+
       <button
-        className="
-    ml-auto px-4 py-2 m-2
-    bg-blue-500 text-white text-xm font-medium
-    rounded-md shadow-sm
-    hover:bg-blue-600 hover:shadow-md
-    transition-colors duration-200
-  "
+        onClick={onDeploy} // ✅ 배포 핸들러 실행
+        className="ml-auto px-4 py-2 m-2 bg-blue-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-600 hover:shadow-md transition-colors duration-200"
       >
         배포하기
       </button>

@@ -15,6 +15,9 @@ export const ROUTES = {
   PROFILE: "/profile",
   SETTINGS: "/settings",
 
+  DEPLOY_STATUS: "/deploy-status",
+  DEPLOY_DASHBOARD: "/deployments",
+
   // 기타
   NOT_FOUND: "/404",
 } as const;
@@ -38,6 +41,8 @@ export const isAuthRequiredRoute = (pathname: string): boolean => {
     ROUTES.PROJECT_NEW,
     ROUTES.PROFILE,
     ROUTES.SETTINGS,
+    ROUTES.DEPLOY_STATUS,
+    ROUTES.DEPLOY_DASHBOARD,
   ];
   return (
     authRoutes.includes(pathname as any) || pathname.startsWith("/project/")

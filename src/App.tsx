@@ -15,8 +15,8 @@ function App() {
 
   return (
     <>
-      <Toaster />
       <RouterProvider router={router} />
+      <Toaster />
     </>
   );
 }

@@ -9,6 +9,7 @@ import LoginSuccessPage from "../pages/LoginSuccessPage";
 import DashboardPage from "../pages/DashboardPage";
 import ProjectEditorPage from "../pages/ProjectEditorPage";
 import NotFoundPage from "../pages/NotFoundPage";
+import DeployStatusPage from "../pages/DeployStatusPage";
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: ROUTES.DEPLOY_DASHBOARD,
+        element: (
+          <ProtectedRoute>
+            <DeployStatusPage />
           </ProtectedRoute>
         ),
       },
