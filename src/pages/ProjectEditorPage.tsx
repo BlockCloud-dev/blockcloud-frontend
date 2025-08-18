@@ -1349,7 +1349,7 @@ function ProjectEditorPage() {
             </svg>
             <p className="text-sm text-gray-700">
               {loadingStatus === "validating"
-                ? "Terraform 코드 유효성 검사 중..."
+                ? "Terraform 코드 유효성 검사 중... 3분 정도 소요됩니다."
                 : "Terraform 배포 중...\n시간이 소요될 수 있습니다."}
             </p>
           </div>
