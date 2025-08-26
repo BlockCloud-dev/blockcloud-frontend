@@ -7,6 +7,7 @@ import {
   Shield,
   Route,
   Building2,
+  Layers,
 } from "lucide-react";
 import { useProjectStore } from "../../stores";
 
@@ -117,11 +118,10 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
         {CSP_TABS.map((csp) => (
           <button
             key={csp}
-            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${
-              selectedCSP === csp
+            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${selectedCSP === csp
                 ? "bg-blue-600 text-white"
                 : "bg-gray-200 text-gray-600"
-            }`}
+              }`}
             onClick={() => setCurrentCSP(csp as "AWS" | "GCP" | "Azure")}
           >
             {csp.toUpperCase()}
@@ -134,11 +134,10 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
         {CATEGORY_TABS.map((cat) => (
           <button
             key={cat}
-            className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${
-              selectedCategory === cat
+            className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${selectedCategory === cat
                 ? "bg-blue-100 text-blue-700 border border-blue-400"
                 : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-            }`}
+              }`}
             onClick={() => setSelectedCategory(cat)}
           >
             {cat}
@@ -168,6 +167,15 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
         ) : (
           filteredBlocks.map((block) => {
             const Icon = block.icon;
+            const requiresStacking = block.id !== "vpc";
+            const stackingHints = {
+              "subnet": "VPC 위에",
+              "ec2": "서브넷/EBS 위에",
+              "security-group": "VPC/서브넷 위에",
+              "volume": "서브넷 위에",
+              "load-balancer": "서브넷 위에"
+            };
+
             return (
               <div
                 key={block.id}
@@ -181,19 +189,31 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
                   onDragStart?.(block);
                 }}
                 onDragEnd={onDragEnd}
-                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-200 shadow-sm cursor-grab hover:bg-gray-100"
+                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-200 shadow-sm cursor-grab hover:bg-gray-100 relative"
               >
                 <div
                   className={`w-10 h-10 ${block.color} rounded-md flex items-center justify-center`}
                 >
                   <Icon className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-gray-800">
-                    {block.name}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-semibold text-gray-800">
+                      {block.name}
+                    </div>
+                    {requiresStacking && (
+                      <div className="flex items-center gap-1" title="스태킹 필요">
+                        <Layers className="w-3 h-3 text-blue-500" />
+                      </div>
+                    )}
                   </div>
                   <div className="text-xs text-gray-500">
                     {block.description}
+                    {requiresStacking && (
+                      <span className="block text-xs text-blue-600 mt-0.5">
+                        {stackingHints[block.id as keyof typeof stackingHints] || "다른 블록 위에"} 배치
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

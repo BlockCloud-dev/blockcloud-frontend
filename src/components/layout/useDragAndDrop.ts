@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Vector3 } from "three";
 import { snapPositionToGrid } from "../../utils/snapGrid";
+import { STACKING_RULES, STACKING_HINTS, validateStacking, getStackingHint } from "../../utils/stackingRules";
 import type { DragAndDropState, SnapGuide } from "./Canvas3DTypes";
 import type { DroppedBlock } from "../../types/blocks";
 
@@ -178,6 +180,13 @@ export const useDragAndDrop = (
         return;
       }
 
+      // BlockPalette에서 드래그한 새로운 블록인지 확인 (기존 블록 이동과 구분)
+      // currentDragData가 있으면 새로운 블록, 없으면 기존 블록 이동
+      if (!currentDragData) {
+        console.log("🔄 [handleDrop] Skipping drop handler - existing block movement (no currentDragData)");
+        return;
+      }
+
       // 마우스 위치를 3D 좌표로 변환
       const canvas = event.currentTarget as HTMLCanvasElement;
       const rect = canvas.getBoundingClientRect();
@@ -201,9 +210,9 @@ export const useDragAndDrop = (
       });
 
       // 스태킹 대상 블록 찾기 - 스택킹 규칙에 맞는 블록 중 가장 위에 있는 블록
-      const dragType = blockData.id;      // AWS 실제 구조 기반 스태킹 규칙 (id 기준) - 새로운 스태킹 시스템에서 관리
-      // 이 부분은 useStackingStore로 이관되었으므로 단순화
-      const allowedTargetTypes = ["vpc", "subnet", "volume", "ebs"]; // 임시로 모든 타입 허용
+      const dragType = blockData.id;
+
+      const allowedTargetTypes = STACKING_RULES[dragType] || [];
 
       // 허용된 타겟 타입의 블록들만 필터링
       const validStackableBlocks = stackableBlocks.filter(block =>
@@ -223,6 +232,35 @@ export const useDragAndDrop = (
           return current.position.y > highest.position.y ? current : highest;
         })
         : null;
+
+      // vpc를 제외한 모든 블록은 반드시 stackingTarget이 있어야만 드롭 가능
+      const isVPCBlock = blockData.id === "vpc";
+      if (!isVPCBlock && !stackingTarget) {
+        const hint = getStackingHint(blockData.id);
+        toast.error(`${blockData.name || blockData.id} 블록은 ${hint} 올려야 합니다.`, {
+          id: `block-drop-restriction-${blockData.id}`, // 중복 방지를 위한 고유 ID
+          position: "bottom-center",
+          duration: 3000
+        });
+        return;
+      }
+
+      // 스택킹 대상이 있다면 스택킹 규칙 검증
+      if (stackingTarget && !isVPCBlock) {
+        const isValidStacking = validateStacking(dragType, stackingTarget.type);
+
+        if (!isValidStacking) {
+          console.log("❌ [Drop] Invalid stacking rule detected");
+
+          const hint = getStackingHint(blockData.id);
+          toast.error(`${blockData.name || blockData.id} 블록은 ${hint} 올릴 수 있습니다. ${stackingTarget.type} 위에는 올릴 수 없습니다.`, {
+            id: `invalid-stacking-drop-${blockData.id}`,
+            position: "bottom-center",
+            duration: 3000
+          });
+          return;
+        }
+      }
 
       // 스태킹 유효성 검증 - 이미 유효한 블록만 선택되었으므로 단순화
       let isValidStack = false;
@@ -278,6 +316,11 @@ export const useDragAndDrop = (
       // 충돌 검사 (스태킹이 유효한 경우 충돌 검사 완전히 건너뛰기)
       const hasCollision = isValidStack ? false : checkCollision(snappedPosition, blockData);
       if (hasCollision) {
+        toast.error("이미 블록이 있는 위치입니다. 다른 위치를 선택해주세요.", {
+          id: "block-collision-warning", // 중복 방지를 위한 고유 ID
+          position: "bottom-center",
+          duration: 2500
+        });
         console.warn("❌ [Drop] Cannot drop block - collision detected");
         return;
       }
@@ -361,18 +404,7 @@ export const useDragAndDrop = (
     // 스태킹 대상 블록 찾기 - 스택킹 규칙에 맞는 블록 중 가장 위에 있는 블록
     const dragType = dragData.id;
 
-    // 스태킹 규칙 정의 (id 기준)
-    const stackingRules: Record<string, string[]> = {
-      vpc: [], // VPC는 최하단
-      subnet: ["vpc"], // 서브넷은 VPC 위에만
-      "security-group": ["vpc", "subnet"], // 보안그룹은 VPC나 서브넷 위에
-      ebs: ["subnet"], // EBS는 서브넷 위에만
-      volume: ["subnet"], // EBS Volume은 서브넷 위에만 (BlockPalette의 실제 id)
-      ec2: ["subnet", "ebs", "volume"], // EC2는 서브넷 또는 EBS/Volume 위에
-      "load-balancer": ["subnet"], // 로드밸런서는 서브넷 위에만
-    };
-
-    const allowedTargetTypes = stackingRules[dragType] || [];
+    const allowedTargetTypes = STACKING_RULES[dragType] || [];
 
     // 허용된 타겟 타입의 블록들만 필터링
     const validStackableBlocks = stackableBlocks.filter(block =>
@@ -406,6 +438,10 @@ export const useDragAndDrop = (
         reason: "Pre-filtered valid target"
       });
     }
+
+    // VPC가 아닌 블록은 반드시 스태킹 대상이 있어야 함
+    const isVPCBlock = dragType === "vpc";
+    const canPlaceDirectly = isVPCBlock || isValidStack;
 
     // 스태킹이 가능한 경우 Y축만 조정 (X, Z는 마우스 위치 유지)
     if (isValidStack && stackingTarget) {
@@ -452,14 +488,16 @@ export const useDragAndDrop = (
       normalizedCoords: { x, y },
       worldPosition,
       snappedPosition,
+      isVPCBlock,
       isValidStack,
       hasCollision,
+      canPlaceDirectly,
       snapGuides: snapGuides.length,
       nearbyBlocks: nearbyBlocks.length,
     });
 
-    // 상태 업데이트 - 스택킹이 유효하면 위치도 유효함
-    const isValidPosition = isValidStack || !hasCollision;
+    // 상태 업데이트 - VPC가 아닌 블록은 반드시 스태킹이 되어야만 유효함
+    const isValidPosition = canPlaceDirectly && !hasCollision;
 
     setDragState(prev => ({
       ...prev,
@@ -479,10 +517,14 @@ export const useDragAndDrop = (
       isVisible: true,
       position: snappedPosition,
       blockType: dragData.id,
-      isValidPosition,
+      isVPCBlock,
       isValidStack,
       hasCollision,
-      reasoning: isValidStack ? "Valid stacking allowed" : (!hasCollision ? "No collision" : "Invalid position")
+      canPlaceDirectly,
+      isValidPosition,
+      reasoning: !isVPCBlock && !isValidStack
+        ? "Non-VPC block requires stacking target"
+        : (hasCollision ? "Position has collision" : "Valid position")
     });
 
     // 부모 컴포넌트에 미리보기 정보 전달

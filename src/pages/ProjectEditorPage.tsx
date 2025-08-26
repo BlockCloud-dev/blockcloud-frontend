@@ -12,6 +12,7 @@ import { generateTerraformCode } from "../utils/codeGenerator";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
 import toast from "react-hot-toast";
+import { STACKING_RULES, validateStacking, getStackingHint } from "../utils/stackingRules";
 
 // Zustand 스토어들
 import {
@@ -182,7 +183,7 @@ function ProjectEditorPage() {
         const closeTargets = potentialTargets.filter((target) => {
           const distance = Math.sqrt(
             Math.pow(newBlock.position.x - target.position.x, 2) +
-              Math.pow(newBlock.position.z - target.position.z, 2)
+            Math.pow(newBlock.position.z - target.position.z, 2)
           );
 
           // 부트볼륨 연결(EC2-Volume/EBS)은 매우 가까워야 함 (거리 1.5 이하)
@@ -314,7 +315,7 @@ function ProjectEditorPage() {
         .map((target) => {
           const distance = Math.sqrt(
             Math.pow(block.position.x - target.position.x, 2) +
-              Math.pow(block.position.z - target.position.z, 2)
+            Math.pow(block.position.z - target.position.z, 2)
           );
           return {
             target,
@@ -475,9 +476,8 @@ function ProjectEditorPage() {
       timestamp: Date.now(),
       properties: {
         name: blockData.name || `New ${blockData.id}`,
-        description: `${
-          blockData.name
-        } created at ${new Date().toLocaleString()}`,
+        description: `${blockData.name
+          } created at ${new Date().toLocaleString()}`,
       },
       size: blockSize,
     };
@@ -860,6 +860,24 @@ function ProjectEditorPage() {
     let finalPosition: Vector3;
 
     if (stackingTarget) {
+      // 스태킹 규칙 검증
+      const isValidStacking = validateStacking(movingBlock.type, stackingTarget.type);
+
+      if (!isValidStacking) {
+        console.log("❌ [APP_MOVE] Invalid stacking rule detected");
+
+        // 구체적인 에러 메시지 표시
+        const hint = getStackingHint(movingBlock.type);
+        toast.error(`${movingBlock.type} 블록은 ${hint} 올릴 수 있습니다. ${stackingTarget.type} 위에는 올릴 수 없습니다.`, {
+          id: `invalid-stacking-${blockId}`,
+          position: "bottom-center",
+          duration: 3000
+        });
+
+        console.log("🔄 [APP_MOVE] Invalid stacking, reverting to original position:", movingBlock.position);
+        return; // 이동을 중단하고 원래 위치 유지
+      }
+
       // 스택킹 위치 계산 - 현재 드래그 위치 유지
       finalPosition = calculateStackingPosition(
         stackingTarget,
@@ -869,7 +887,7 @@ function ProjectEditorPage() {
         snappedZ
       );
       console.log(
-        "📚 [APP_MOVE] Stacking block on top of:",
+        "📚 [APP_MOVE] Valid stacking - block on top of:",
         stackingTarget.type,
         "at position:",
         finalPosition
@@ -887,10 +905,28 @@ function ProjectEditorPage() {
         finalPosition
       );
     } else {
-      // 충돌 없으면 BaseBlock.tsx에서 전달받은 위치 그대로 사용
+      // VPC가 아닌 블록은 반드시 스태킹 대상이 있어야 함
+      const isVPCBlock = movingBlock.type === "vpc";
+      if (!isVPCBlock) {
+        console.log("❌ [APP_MOVE] Non-VPC block cannot be placed in empty space");
+
+        // 구체적인 에러 메시지 표시
+        const hint = getStackingHint(movingBlock.type);
+        toast.error(`${movingBlock.type} 블록은 ${hint} 올려야 합니다. 빈 공간에는 올릴 수 없습니다.`, {
+          id: `block-move-restriction-${blockId}`, // 중복 방지를 위한 고유 ID
+          position: "bottom-center",
+          duration: 3000
+        });
+
+        // 원래 위치로 복원
+        console.log("🔄 [APP_MOVE] Reverting to original position:", movingBlock.position);
+        return; // 이동을 중단하고 원래 위치 유지
+      }
+
+      // VPC 블록은 빈 공간에 배치 가능
       finalPosition = new Vector3(snappedX, newPosition.y, snappedZ);
       console.log(
-        "✅ [APP_MOVE] No collision, placing at requested position:",
+        "✅ [APP_MOVE] VPC block placed at requested position:",
         finalPosition
       );
     }
@@ -1173,9 +1209,9 @@ function ProjectEditorPage() {
   return (
     <div className="w-full h-screen bg-white flex flex-col overflow-hidden relative">
       {/* 메인 헤더 */}
-        <MainHeader
-          onSaveProject={handleSaveProject}
-        />      {/* 메인 3-Panel 레이아웃 */}
+      <MainHeader
+        onSaveProject={handleSaveProject}
+      />      {/* 메인 3-Panel 레이아웃 */}
       <div className="flex-1 flex flex-row h-[calc(100vh-120px)] min-w-0">
         {/* 왼쪽 패널 */}
         <ResizablePanel side="left" initialWidth={320}>
@@ -1249,8 +1285,8 @@ function ProjectEditorPage() {
               마지막 업데이트:{" "}
               {droppedBlocks.length > 0
                 ? new Date(
-                    Math.max(...droppedBlocks.map((b) => b.timestamp))
-                  ).toLocaleTimeString()
+                  Math.max(...droppedBlocks.map((b) => b.timestamp))
+                ).toLocaleTimeString()
                 : "없음"}
             </span>
           </div>
