@@ -772,7 +772,7 @@ function getConnectionTypeLabel(connectionType: string): string {
     "subnet-ec2": "서브넷 ↔ EC2",
     // EBS 스택킹 연결 타입들
     "ebs-ec2-boot": "EBS ↔ EC2 (부트 볼륨/스택킹)",
-    "ebs-ec2-block": "EBS ↔ EC2 (블록 볼륨/도로)",
+    "ebs-ec2-block": "EBS ↔ EC2 (블록 볼륨/연결)",
     "volume-ec2": "볼륨 ↔ EC2",
     "volume-ec2-boot": "볼륨 ↔ EC2 (부트 볼륨/스택킹)",
   };

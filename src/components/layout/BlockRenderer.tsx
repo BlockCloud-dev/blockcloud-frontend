@@ -139,7 +139,7 @@ export function BlockRenderer({
             />
           );
         } else {
-          // 일반 도로 연결선 렌더링
+          // 일반 연결선 렌더링
           return (
             <Road
               key={connection.id}

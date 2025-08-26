@@ -28,7 +28,7 @@ export type ConnectionType =
   | 'subnet-security-group' // 서브넷 → 보안그룹
   | 'subnet-load-balancer'  // 서브넷 → 로드밸런서
   | 'ebs-ec2-boot'       // EBS → EC2 (부트 볼륨, 스택킹)
-  | 'ebs-ec2-block'      // EBS → EC2 (블록 볼륨, 도로 연결)
+  | 'ebs-ec2-block'      // EBS → EC2 (블록 볼륨, 연결)
   | 'volume-ec2'         // 볼륨 → EC2 (기존 호환성)
   | 'volume-ec2-boot'    // Volume → EC2 (부트 볼륨, 스택킹)
   // === 기존 호환성 유지용 ===

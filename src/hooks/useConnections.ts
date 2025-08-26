@@ -268,16 +268,16 @@ export const useConnections = () => {
       // 연결 속성 결정
       let connectionProperties: any = {};
 
-      // EC2와 Volume 간의 도로 연결인지 확인 (추가 블록 스토리지)
+      // EC2와 Volume 간의 연결인지 확인 (추가 블록 스토리지)
       if (validation.connectionType === 'ec2-volume' || validation.connectionType === 'volume-ec2') {
         connectionProperties = {
           volumeType: 'additional',
-          description: '추가 블록 스토리지 (도로 연결)'
+          description: '추가 블록 스토리지 (연결)'
         };
         console.log('💾 [CONNECTIONS] Additional block storage relationship created via road connection');
       }
 
-      // EBS와 EC2 간의 도로 연결인지 확인 (블록 볼륨) - 양방향 지원
+      // EBS와 EC2 간의 연결인지 확인 (블록 볼륨) - 양방향 지원
       if ((fromBlock.type === 'ebs' && toBlock.type === 'ec2') || (fromBlock.type === 'ec2' && toBlock.type === 'ebs')) {
         connectionProperties = {
           volumeType: 'additional',

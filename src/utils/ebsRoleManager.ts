@@ -12,7 +12,7 @@ export interface EBSRoleAnalysis {
  * 
  * 규칙:
  * 1. EC2가 EBS 위에 스택되어 있으면 => 부트 볼륨 (boot)
- * 2. EC2와 EBS가 도로 연결되어 있으면 => 블록 스토리지 (block-storage)
+ * 2. EC2와 EBS가 연결되어 있으면 => 블록 스토리지 (block-storage)
  * 3. 어떤 관계도 없으면 => 미할당 (unassigned)
  */
 export function analyzeEBSRole(
@@ -52,13 +52,13 @@ export function analyzeEBSRole(
         };
     }
 
-    // 2. 도로 연결 관계 확인 - EC2와 연결되어 있는지 체크
+    // 2. 연결 관계 확인 - EC2와 연결되어 있는지 체크
     const roadConnection = connections.find(conn => {
         const isConnectedToEC2 =
             (conn.fromBlockId === ebsId && allBlocks.find(b => b.id === conn.toBlockId)?.type === 'ec2') ||
             (conn.toBlockId === ebsId && allBlocks.find(b => b.id === conn.fromBlockId)?.type === 'ec2');
 
-        // 스택 연결이 아닌 도로 연결인지 확인
+        // 스택 연결이 아닌 일반 연결인지 확인
         const isRoadConnection = !conn.properties?.stackConnection;
 
         if (isConnectedToEC2 && isRoadConnection) {
@@ -79,7 +79,7 @@ export function analyzeEBSRole(
         return {
             blockId: ebsId,
             role: 'block-storage',
-            reason: `EC2 인스턴스 (${ec2Block?.name})와 도로 연결되어 추가 블록 스토리지로 사용됨`,
+            reason: `EC2 인스턴스 (${ec2Block?.name})와 연결되어 추가 블록 스토리지로 사용됨`,
             relatedBlocks
         };
     }

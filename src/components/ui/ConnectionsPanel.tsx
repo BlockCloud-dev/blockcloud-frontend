@@ -106,7 +106,7 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
             <div>
               <h2 className="text-lg font-semibold flex items-center">
                 <Route className="w-5 h-5 mr-2" />
-                도로 연결
+                연결
               </h2>
               <p className="text-sm text-gray-400">AWS 리소스 간 연결 상태</p>
             </div>
@@ -160,7 +160,7 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
         {showNewConnectionUI ? (
           <div className="space-y-4">
             <div className="bg-gray-700 p-4 rounded-lg">
-              <h3 className="text-md font-medium mb-3">새 도로 연결 만들기</h3>
+              <h3 className="text-md font-medium mb-3">새 연결 만들기</h3>
 
               <div className="space-y-3">
                 <div>
@@ -217,7 +217,7 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
             <Link2 className="w-12 h-12 mb-4 opacity-50" />
             <p className="text-center">
-              아직 연결된 도로가 없습니다.<br />
+              아직 연결이 없습니다.<br />
               새 연결 버튼을 눌러 블록들을 연결해보세요!
             </p>
           </div>
@@ -233,7 +233,7 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
           <div>
             <h2 className="text-lg font-semibold flex items-center">
               <Route className="w-5 h-5 mr-2" />
-              도로 연결 ({connections.length})
+              연결 ({connections.length})
             </h2>
             <p className="text-sm text-gray-400">연결된 AWS 리소스들</p>
           </div>
@@ -295,7 +295,7 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
       {/* 새 연결 UI */}
       {showNewConnectionUI && (
         <div className="mb-4 bg-gray-700 p-4 rounded-lg">
-          <h3 className="text-md font-medium mb-3">새 도로 연결 만들기</h3>
+          <h3 className="text-md font-medium mb-3">새 연결 만들기</h3>
 
           <div className="space-y-3">
             <div>
