@@ -112,6 +112,12 @@ export const useStackingStore = create<StackingStoreState>()(
     validateStacking: (childBlock, parentBlock) => {
       const { canStack } = get();
 
+      // null/undefined 체크
+      if (!childBlock || !parentBlock || !childBlock.id || !parentBlock.id) {
+        console.warn('🔍 [ValidateStacking] Invalid blocks provided:', { childBlock, parentBlock });
+        return false;
+      }
+
       console.log('🔍 [ValidateStacking] 스태킹 검증 시작:', {
         child: `${childBlock.type}(${childBlock.id.substring(0, 8)})`,
         parent: `${parentBlock.type}(${parentBlock.id.substring(0, 8)})`,
@@ -257,8 +263,8 @@ export const useStackingStore = create<StackingStoreState>()(
       });
 
       console.log('🔗 스태킹 관계 생성:', {
-        child: `${childBlock.type}(${childId.substring(0, 8)})`,
-        parent: `${parentBlock.type}(${parentId.substring(0, 8)})`,
+        child: `${childBlock.type}(${childId?.substring(0, 8) || 'unknown'})`,
+        parent: `${parentBlock.type}(${parentId?.substring(0, 8) || 'unknown'})`,
         connectionType: rule.connectionType,
         isBootVolume: rule.isBootVolume
       });
@@ -303,7 +309,7 @@ export const useStackingStore = create<StackingStoreState>()(
         return { stackingStates: newMap };
       });
 
-      console.log('🗑️ 스태킹 관계 제거:', blockId.substring(0, 8));
+      console.log('🗑️ 스태킹 관계 제거:', blockId?.substring(0, 8) || 'unknown');
     },
 
     // 미리보기 설정
@@ -356,8 +362,8 @@ export const useStackingStore = create<StackingStoreState>()(
         if (rule.isBootVolume) {
           console.log('🥾 [StackingStore] 부트볼륨 연결 생성:', {
             connection: connectionId,
-            from: `${parentBlock.type}(${state.parentBlockId.substring(0, 8)})`,
-            to: `${childBlock.type}(${blockId.substring(0, 8)})`,
+            from: `${parentBlock.type}(${state.parentBlockId?.substring(0, 8) || 'unknown'})`,
+            to: `${childBlock.type}(${blockId?.substring(0, 8) || 'unknown'})`,
             type: rule.connectionType
           });
         }

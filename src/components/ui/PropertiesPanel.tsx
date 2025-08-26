@@ -1,6 +1,7 @@
 import React from 'react';
 import type { BlockProperties } from '../../types/blocks';
 import { useBlockStore } from '../../stores';
+import { canDeleteBlock, getStackedBlocks } from '../../utils/stackingRules';
 
 interface PropertiesPanelProps {
   // props 없이 Zustand에서 직접 상태 가져오기
@@ -36,6 +37,108 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
 
   const handleResize = (blockId: string, newSize: [number, number, number]) => {
     resizeBlock(blockId, newSize);
+  };
+
+  // 삭제 및 이동 관련 정보 렌더링
+  const renderDeleteInfo = () => {
+    if (!selectedBlock) return null;
+
+    const deleteValidation = canDeleteBlock(selectedBlock.id, droppedBlocks);
+    const stackedBlocks = getStackedBlocks(selectedBlock.id, droppedBlocks);
+
+    return (
+      <div className="mt-4 p-3 bg-gray-700 rounded">
+        <h3 className="font-medium mb-2 text-yellow-300">삭제 & 이동 정보</h3>
+
+        {/* 이동 가능 여부 */}
+        <div className="mb-3">
+          <h4 className="text-sm font-medium mb-1 text-blue-300">이동 가능 여부</h4>
+          {stackedBlocks.length === 0 ? (
+            <div className="text-green-300 text-sm">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                이 블록은 이동 가능합니다
+              </div>
+            </div>
+          ) : (
+            <div className="text-red-300 text-sm">
+              <div className="flex items-center mb-1">
+                <div className="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+                이 블록은 이동할 수 없습니다
+              </div>
+              <p className="text-gray-300 text-xs">
+                위에 스택된 블록들을 먼저 이동해야 합니다
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 삭제 가능 여부 */}
+        <div>
+          <h4 className="text-sm font-medium mb-1 text-yellow-300">삭제 가능 여부</h4>
+
+          {deleteValidation.canDelete ? (
+            <div className="text-green-300 text-sm">
+              <div className="flex items-center mb-1">
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                이 블록은 삭제 가능합니다
+              </div>
+              <p className="text-gray-300 text-xs">
+                위에 스택된 다른 블록이 없습니다.
+              </p>
+            </div>
+          ) : (
+            <div className="text-red-300 text-sm">
+              <div className="flex items-center mb-1">
+                <div className="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+                이 블록은 삭제할 수 없습니다
+              </div>
+              <p className="text-gray-300 text-xs mb-2">
+                {deleteValidation.reason}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 스택된 블록 목록 (이동과 삭제 공통) */}
+        {stackedBlocks.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-600">
+            <p className="text-xs text-gray-400 mb-1">위에 스택된 블록들:</p>
+            <div className="text-xs space-y-1">
+              {stackedBlocks.map((block) => (
+                <div key={block.id} className="text-orange-300 flex items-center">
+                  <div className="w-1 h-1 bg-orange-400 rounded-full mr-2"></div>
+                  {block.type} ({block.id.substring(0, 8)})
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 삭제 순서 안내 */}
+        {!deleteValidation.canDelete && stackedBlocks.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-600">
+            <p className="text-xs text-gray-400 mb-2">삭제 순서:</p>
+            <div className="text-xs space-y-1">
+              {[...stackedBlocks].reverse().map((block, index) => (
+                <div key={block.id} className="flex items-center text-blue-300">
+                  <span className="w-4 h-4 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs mr-2">
+                    {index + 1}
+                  </span>
+                  {block.type} 먼저 삭제
+                </div>
+              ))}
+              <div className="flex items-center text-green-300">
+                <span className="w-4 h-4 bg-green-600 text-white rounded-full flex items-center justify-center text-xs mr-2">
+                  {stackedBlocks.length + 1}
+                </span>
+                {selectedBlock.type} 삭제 가능
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (!selectedBlock) {
@@ -493,6 +596,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
       <div className="space-y-4">
         {renderBlockProperties()}
         {renderResizeControls()}
+        {renderDeleteInfo()}
       </div>
     </div>
   );

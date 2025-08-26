@@ -12,7 +12,7 @@ import { generateTerraformCode } from "../utils/codeGenerator";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
 import toast from "react-hot-toast";
-import { STACKING_RULES, validateStacking, getStackingHint } from "../utils/stackingRules";
+import { STACKING_RULES, validateStacking, getStackingHint, canDeleteBlock, getStackedBlocks } from "../utils/stackingRules";
 
 // Zustand 스토어들
 import {
@@ -602,6 +602,34 @@ function ProjectEditorPage() {
   };
 
   const handleBlockDelete = (blockId: string) => {
+    // 스태킹 규칙에 따른 삭제 검증
+    const deleteValidation = canDeleteBlock(blockId, droppedBlocks);
+
+    if (!deleteValidation.canDelete) {
+      const targetBlock = droppedBlocks.find(b => b.id === blockId);
+      const stackedBlocks = deleteValidation.stackedBlocks || [];
+
+      // 사용자에게 구체적인 안내 메시지 표시
+      const stackedBlockNames = stackedBlocks.map(b => b.type).join(", ");
+
+      toast.error(
+        `${targetBlock?.type || "블록"}을 삭제할 수 없습니다.\n` +
+        `위에 스택된 블록들을 먼저 삭제해주세요: ${stackedBlockNames}`,
+        {
+          id: `delete-blocked-${blockId}`,
+          position: "bottom-center",
+          duration: 3000,
+          style: {
+            whiteSpace: 'pre-line',
+            maxWidth: '400px'
+          }
+        }
+      );
+
+      return; // 삭제 중단
+    }
+
+    // 삭제 가능한 경우 기존 로직 실행
     // 블록과 관련된 모든 연결 삭제
     deleteConnectionsForBlock(blockId);
 
@@ -611,6 +639,12 @@ function ProjectEditorPage() {
       setPropertiesBlockId(null);
       setActiveTab("code"); // 블록 삭제 시 코드 탭으로 전환
     }
+
+    toast.success(`${droppedBlocks.find(b => b.id === blockId)?.type || "블록"}이 삭제되었습니다.`, {
+      position: "bottom-center",
+      duration: 2000
+    });
+
     console.log("🗑️ Block deleted:", blockId);
   };
 
@@ -618,6 +652,30 @@ function ProjectEditorPage() {
     console.log("🎯 [APP_MOVE] ========== BLOCK MOVE START ==========");
     console.log("🎯 [APP_MOVE] Block ID:", blockId);
     console.log("🎯 [APP_MOVE] Received position from BaseBlock:", newPosition);
+
+    // 위에 스택된 블록이 있는지 검증
+    const stackedBlocks = getStackedBlocks(blockId, droppedBlocks);
+    if (stackedBlocks.length > 0) {
+      const movingBlock = droppedBlocks.find(b => b.id === blockId);
+      const stackedBlockNames = stackedBlocks.map(b => b.type).join(", ");
+
+      toast.error(
+        `${movingBlock?.type || "블록"}을 이동할 수 없습니다.\n` +
+        `위에 스택된 블록들을 먼저 이동해주세요: ${stackedBlockNames}`,
+        {
+          id: `move-blocked-${blockId}`,
+          position: "bottom-center",
+          duration: 3000,
+          style: {
+            whiteSpace: 'pre-line',
+            maxWidth: '400px'
+          }
+        }
+      );
+
+      console.log("❌ [APP_MOVE] Cannot move block - has stacked blocks above:", stackedBlockNames);
+      return; // 이동 중단
+    }
 
     // 블록 높이 계산 함수
     const getBlockHeight = (
