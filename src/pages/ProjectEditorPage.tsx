@@ -12,7 +12,7 @@ import { generateTerraformCode } from "../utils/codeGenerator";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
 import toast from "react-hot-toast";
-import { STACKING_RULES, validateStacking, getStackingHint, canDeleteBlock, getStackedBlocks } from "../utils/stackingRules";
+import { getStackingHint, canDeleteBlock, getStackedBlocks } from "../utils/stackingRules";
 
 // Zustand 스토어들
 import {
@@ -919,7 +919,7 @@ function ProjectEditorPage() {
 
     if (stackingTarget) {
       // 스태킹 규칙 검증
-      const isValidStacking = validateStacking(movingBlock.type, stackingTarget.type);
+      const isValidStacking = validateStacking(movingBlock, stackingTarget);
 
       if (!isValidStacking) {
         console.log("❌ [APP_MOVE] Invalid stacking rule detected");

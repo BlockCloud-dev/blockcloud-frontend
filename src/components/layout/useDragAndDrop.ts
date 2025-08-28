@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Vector3 } from "three";
 import { snapPositionToGrid } from "../../utils/snapGrid";
-import { STACKING_RULES, STACKING_HINTS, validateStacking, getStackingHint } from "../../utils/stackingRules";
+import { STACKING_RULES, validateStacking, getStackingHint } from "../../utils/stackingRules";
 import type { DragAndDropState, SnapGuide } from "./Canvas3DTypes";
 import type { DroppedBlock } from "../../types/blocks";
 
