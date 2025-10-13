@@ -6,7 +6,6 @@ import { Vector3 } from "three";
 import { BlockRenderer } from "./BlockRenderer";
 import { useDragAndDrop } from "./useDragAndDrop";
 import { useStacking } from "./useStacking";
-import { useConnections } from "./useConnections";
 import { useConnectionStore } from "../../stores";
 import type { Canvas3DProps } from "./Canvas3DTypes";
 
@@ -28,7 +27,7 @@ export function Canvas3D({
   connectingFrom,
   onConnectionClick,
   onConnectionComplete,
-  onDeleteConnection,
+  // onDeleteConnection, // 레거시 - 더 이상 사용되지 않음
   isDraggingBlock,
   dragPosition,
   onDragPreview,
@@ -59,14 +58,8 @@ export function Canvas3D({
     stackableBlocks,
   } = useStacking(droppedBlocks, dragPosition || null, currentDragData);
 
-  // 연결 관리 로직
-  const {
-    handleBlockMove: handleConnectionBlockMove,
-  } = useConnections(droppedBlocks, connections, onDeleteConnection);
-
-  // 통합된 블록 이동 핸들러
+  // 통합된 블록 이동 핸들러 (레거시 useConnections 제거됨)
   const handleBlockMove = (blockId: string, newPosition: Vector3) => {
-    handleConnectionBlockMove(blockId, newPosition);
     onBlockMove?.(blockId, newPosition);
   };
 

@@ -57,28 +57,37 @@ interface StackingStoreState {
   calculateStackedPosition: (childBlock: DroppedBlock, parentBlock: DroppedBlock) => Vector3;
 }
 
-// AWS 스태킹 규칙 정의
-const AWS_STACKING_RULES: StackingRule[] = [
-  // 네트워킹 계층
-  { childType: 'subnet', parentType: 'vpc', connectionType: 'vpc-subnet' },
+// 벤더 접두사 포함 스태킹 규칙 정의 (모든 프로바이더 지원)
+const STACKING_RULES: StackingRule[] = [
+  // === AWS 규칙 ===
+  { childType: 'aws-subnet', parentType: 'aws-vpc', connectionType: 'vpc-subnet' },
+  { childType: 'aws-ec2', parentType: 'aws-subnet', connectionType: 'subnet-compute' },
+  { childType: 'aws-ec2', parentType: 'aws-volume', connectionType: 'volume-compute-boot', isBootVolume: true },
+  { childType: 'aws-ec2', parentType: 'aws-ebs', connectionType: 'volume-compute-boot', isBootVolume: true },
+  { childType: 'aws-volume', parentType: 'aws-subnet', connectionType: 'subnet-volume' },
+  { childType: 'aws-ebs', parentType: 'aws-subnet', connectionType: 'subnet-volume' },
+  { childType: 'aws-security-group', parentType: 'aws-vpc', connectionType: 'vpc-security-group' },
+  { childType: 'aws-security-group', parentType: 'aws-subnet', connectionType: 'subnet-security-group' },
+  { childType: 'aws-load-balancer', parentType: 'aws-subnet', connectionType: 'subnet-load-balancer' },
+  { childType: 'aws-rds', parentType: 'aws-subnet', connectionType: 'subnet-rds' },
 
-  // 컴퓨팅 리소스
-  { childType: 'ec2', parentType: 'subnet', connectionType: 'subnet-ec2' },
-  { childType: 'ec2', parentType: 'volume', connectionType: 'volume-ec2-boot', isBootVolume: true },
-  { childType: 'ec2', parentType: 'ebs', connectionType: 'ebs-ec2-boot', isBootVolume: true },
+  // === GCP 규칙 ===
+  { childType: 'gcp-subnet', parentType: 'gcp-vpc-network', connectionType: 'vpc-subnet' },
+  { childType: 'gcp-compute-engine', parentType: 'gcp-subnet', connectionType: 'subnet-compute' },
+  { childType: 'gcp-compute-engine', parentType: 'gcp-persistent-disk', connectionType: 'volume-compute-boot', isBootVolume: true },
+  { childType: 'gcp-persistent-disk', parentType: 'gcp-subnet', connectionType: 'subnet-volume' },
+  { childType: 'gcp-firewall-rule', parentType: 'gcp-vpc-network', connectionType: 'vpc-security-group' },
+  { childType: 'gcp-firewall-rule', parentType: 'gcp-subnet', connectionType: 'subnet-security-group' },
+  { childType: 'gcp-load-balancer', parentType: 'gcp-subnet', connectionType: 'subnet-load-balancer' },
 
-  // 스토리지
-  { childType: 'volume', parentType: 'subnet', connectionType: 'subnet-volume' },
-  { childType: 'ebs', parentType: 'subnet', connectionType: 'subnet-ebs' },
-
-  // 보안
-  { childType: 'security-group', parentType: 'subnet', connectionType: 'subnet-security-group' },
-
-  // 로드밸런서
-  { childType: 'load-balancer', parentType: 'subnet', connectionType: 'subnet-load-balancer' },
-
-  // 데이터베이스 (기존 타입 사용)
-  { childType: 'rds', parentType: 'subnet', connectionType: 'subnet-load-balancer' },
+  // === Azure 규칙 ===
+  { childType: 'azure-subnet', parentType: 'azure-virtual-network', connectionType: 'vpc-subnet' },
+  { childType: 'azure-virtual-machine', parentType: 'azure-subnet', connectionType: 'subnet-compute' },
+  { childType: 'azure-virtual-machine', parentType: 'azure-managed-disk', connectionType: 'volume-compute-boot', isBootVolume: true },
+  { childType: 'azure-managed-disk', parentType: 'azure-subnet', connectionType: 'subnet-volume' },
+  { childType: 'azure-network-security-group', parentType: 'azure-virtual-network', connectionType: 'vpc-security-group' },
+  { childType: 'azure-network-security-group', parentType: 'azure-subnet', connectionType: 'subnet-security-group' },
+  { childType: 'azure-load-balancer', parentType: 'azure-subnet', connectionType: 'subnet-load-balancer' },
 ];
 
 export const useStackingStore = create<StackingStoreState>()(
@@ -86,7 +95,7 @@ export const useStackingStore = create<StackingStoreState>()(
     // 초기 상태
     stackingStates: new Map(),
     stackingPreview: null,
-    stackingRules: AWS_STACKING_RULES,
+    stackingRules: STACKING_RULES,
 
     // 기본 액션
     setStackingState: (blockId, state) => set(prev => ({
@@ -377,7 +386,12 @@ export const useStackingStore = create<StackingStoreState>()(
 
     // 스택된 위치 계산
     calculateStackedPosition: (childBlock, parentBlock) => {
-      const parentHeight = parentBlock.type === 'vpc' || parentBlock.type === 'subnet'
+      // 벤더 무관 타입 체크 (includes 사용)
+      const isVPCOrSubnet = parentBlock.type.includes('vpc') ||
+        parentBlock.type.includes('virtual-network') ||
+        parentBlock.type.includes('subnet');
+
+      const parentHeight = isVPCOrSubnet
         ? (parentBlock.size?.[1] || 0.2)
         : (parentBlock.size?.[1] || 1);
 

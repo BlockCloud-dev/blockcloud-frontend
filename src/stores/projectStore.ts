@@ -1,5 +1,6 @@
 // src/stores/projectStore.ts
 import { create } from "zustand";
+import { providerManager, CloudProviderType } from "../providers";
 
 export interface ProjectState {
   projectId: number | null;
@@ -32,7 +33,33 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   setProjectName: (name) => set({ projectName: name, isSaved: false }),
   setDescription: (desc) => set({ description: desc, isSaved: false }),
-  setCurrentCSP: (csp) => set({ currentCSP: csp, isSaved: false }),
+  setCurrentCSP: (csp) => {
+    console.log(`🔄 [ProjectStore] Switching CSP to: ${csp}`);
+
+    // 프로바이더 매니저와 동기화
+    let providerType: CloudProviderType;
+    switch (csp) {
+      case "AWS":
+        providerType = CloudProviderType.AWS;
+        break;
+      case "GCP":
+        providerType = CloudProviderType.GCP;
+        break;
+      case "Azure":
+        providerType = CloudProviderType.AZURE;
+        break;
+      default:
+        providerType = CloudProviderType.AWS;
+    }
+
+    const success = providerManager.setCurrentProvider(providerType);
+    if (success) {
+      console.log(`✅ [ProjectStore] Provider switched to: ${csp}`);
+      set({ currentCSP: csp, isSaved: false });
+    } else {
+      console.error(`❌ [ProjectStore] Failed to switch provider to: ${csp}`);
+    }
+  },
   setIsSaved: (saved) => set({ isSaved: saved }),
 
   loadProject: (project) =>

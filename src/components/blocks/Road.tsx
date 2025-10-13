@@ -65,25 +65,43 @@ export const Road: React.FC<RoadProps> = ({
         centralStripeGeometry.rotateY(angle);
         centralStripeGeometry.translate(midPoint.x, midPoint.y + 0.002, midPoint.z); // 도로보다 약간 위
 
-        // 연결 타입에 따른 도로 색상 및 라벨
+        // 연결 타입에 따른 도로 색상 및 라벨 (벤더 무관)
         const getConnectionInfo = (type: string) => {
             switch (type) {
+                // 벤더 무관 타입
+                case 'compute-security-group':
+                    return { color: '#ef4444', label: 'Security' };
+                case 'compute-volume':
+                    return { color: '#8b5cf6', label: 'Storage' };
+                case 'volume-compute-boot':
+                    return { color: '#eab308', label: 'Boot Volume' };
+                case 'volume-compute-block':
+                    return { color: '#8b5cf6', label: 'Block Volume' };
+                case 'load-balancer-compute':
+                    return { color: '#f59e0b', label: 'Load Balance' };
+                case 'load-balancer-security-group':
+                    return { color: '#ec4899', label: 'LB Security' };
+                case 'subnet-security-group':
+                    return { color: '#f97316', label: isStacking ? 'Stack SG' : 'SG Network' };
+                case 'subnet-compute':
+                    return { color: '#10b981', label: isStacking ? 'Stack Compute' : 'Compute Network' };
+                case 'subnet-volume':
+                    return { color: '#a855f7', label: isStacking ? 'Stack Volume' : 'Volume Network' };
+                case 'subnet-load-balancer':
+                    return { color: '#06b6d4', label: isStacking ? 'Stack LB' : 'LB Network' };
+                case 'vpc-subnet':
+                    return { color: '#3b82f6', label: 'Stack Subnet' };
+                // 레거시 AWS 타입 (호환성)
                 case 'ec2-security-group':
                     return { color: '#ef4444', label: 'Security' };
                 case 'ec2-volume':
                     return { color: '#8b5cf6', label: 'Storage' };
                 case 'load-balancer-ec2':
                     return { color: '#f59e0b', label: 'Load Balance' };
-                case 'load-balancer-security-group':
-                    return { color: '#ec4899', label: 'LB Security' };
-                case 'security-group-subnet':
-                    return { color: '#f97316', label: isStacking ? 'Stack SG' : 'SG Network' };
-                case 'ec2-subnet':
+                case 'subnet-ec2':
                     return { color: '#10b981', label: isStacking ? 'Stack EC2' : 'EC2 Network' };
-                case 'load-balancer-subnet':
-                    return { color: '#06b6d4', label: isStacking ? 'Stack LB' : 'LB Network' };
-                case 'subnet-vpc':
-                    return { color: '#3b82f6', label: 'Stack Subnet' };
+                case 'subnet-ebs':
+                    return { color: '#a855f7', label: isStacking ? 'Stack EBS' : 'EBS Network' };
                 default:
                     return { color: '#6b7280', label: 'Connection' };
             }

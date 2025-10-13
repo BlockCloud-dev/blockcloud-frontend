@@ -8,11 +8,11 @@ import { ConnectionsPanel } from "../components/ui/ConnectionsPanel";
 import { Vector3 } from "three";
 import type { DroppedBlock } from "../types/blocks";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
-import { generateTerraformCode } from "../utils/codeGenerator";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
 import toast from "react-hot-toast";
 import { getStackingHint, canDeleteBlock, getStackedBlocks } from "../utils/stackingRules";
+import { providerManager, CloudProviderType } from "../providers";
 
 // Zustand 스토어들
 import {
@@ -89,6 +89,7 @@ function ProjectEditorPage() {
   const projectNameFromNav = location.state?.projectName;
 
   const setProjectName = useProjectStore((state) => state.setProjectName);
+  const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
 
   const [loadingStatus, setLoadingStatus] = useState<
     null | "validating" | "deploying"
@@ -143,6 +144,27 @@ function ProjectEditorPage() {
           setConnections(apiConnections);
           console.log("✅ 프로젝트 연결 불러오기 성공:", apiConnections.length);
         }
+
+        // 프로젝트의 클라우드 프로바이더 설정 불러오기
+        const projectProvider = res?.data?.provider ?? res?.provider ?? "AWS";
+        console.log("🔄 [ProjectEditor] Loading project with provider:", projectProvider);
+
+        // 프로바이더 설정 (UI 상태와 프로바이더 매니저 모두 업데이트)
+        setCurrentCSP(projectProvider as "AWS" | "GCP" | "Azure");
+
+        // 프로바이더 매니저에서도 현재 프로바이더 설정
+        let providerType: CloudProviderType;
+        switch (projectProvider) {
+          case "GCP":
+            providerType = CloudProviderType.GCP;
+            break;
+          case "Azure":
+            providerType = CloudProviderType.AZURE;
+            break;
+          default:
+            providerType = CloudProviderType.AWS;
+        }
+        providerManager.setCurrentProvider(providerType);
       } catch (error) {
         console.error("❌ 블록 불러오기 실패:", error);
         // UX상 경고창은 과도할 수 있어 console만 남김. 필요 시 alert 추가 가능.
@@ -172,8 +194,9 @@ function ProjectEditorPage() {
       .filter((block) => validateStacking(newBlock, block));
 
     if (potentialTargets.length > 0) {
-      // EC2의 경우 물리적으로 가까운 대상과만 스태킹 관계 생성
-      if (newBlock.type === "ec2") {
+      // Compute 인스턴스의 경우 물리적으로 가까운 대상과만 스태킹 관계 생성
+      const isComputeInstance = newBlock.type.includes('ec2') || newBlock.type.includes('compute-engine') || newBlock.type.includes('virtual-machine');
+      if (isComputeInstance) {
         console.log(
           "🔗 [NewStacking] EC2 다중 스태킹 처리:",
           potentialTargets.map((t) => t.type)
@@ -186,8 +209,9 @@ function ProjectEditorPage() {
             Math.pow(newBlock.position.z - target.position.z, 2)
           );
 
-          // 부트볼륨 연결(EC2-Volume/EBS)은 매우 가까워야 함 (거리 1.5 이하)
-          if (target.type === "volume" || target.type === "ebs") {
+          // 부트볼륨 연결(Compute-Volume/Disk)은 매우 가까워야 함 (거리 1.5 이하)
+          const isVolumeDisk = target.type.includes('volume') || target.type.includes('ebs') || target.type.includes('disk');
+          if (isVolumeDisk) {
             const isVeryClose = distance <= 1.5;
             console.log("🔍 [NewStacking] 부트볼륨 거리 검사:", {
               target: target.type,
@@ -198,7 +222,7 @@ function ProjectEditorPage() {
           }
 
           // Subnet 연결은 더 관대하게 (거리 5.0 이하)
-          if (target.type === "subnet") {
+          if (target.type.includes('subnet')) {
             const isClose = distance <= 5.0;
             console.log("🔍 [NewStacking] Subnet 거리 검사:", {
               distance: distance.toFixed(2),
@@ -298,11 +322,12 @@ function ProjectEditorPage() {
       ),
     });
 
-    // EC2: 거리 기반 우선순위 (가까운 블록 우선)
-    if (block.type === "ec2") {
-      const subnetTargets = potentialTargets.filter((t) => t.type === "subnet");
-      const storageTargets = potentialTargets.filter(
-        (t) => t.type === "ebs" || t.type === "volume"
+    // Compute 인스턴스: 거리 기반 우선순위 (가까운 블록 우선)
+    const isComputeInstance = block.type.includes('ec2') || block.type.includes('compute-engine') || block.type.includes('virtual-machine');
+    if (isComputeInstance) {
+      const subnetTargets = potentialTargets.filter((t) => t.type.includes('subnet'));
+      const storageTargets = potentialTargets.filter((t) =>
+        t.type.includes('volume') || t.type.includes('ebs') || t.type.includes('disk')
       );
 
       console.log("🎯 [SelectTarget] EC2 타겟 분류:", {
@@ -320,7 +345,7 @@ function ProjectEditorPage() {
           return {
             target,
             distance,
-            isStorage: target.type === "ebs" || target.type === "volume",
+            isStorage: target.type.includes('volume') || target.type.includes('ebs') || target.type.includes('disk'),
           };
         })
         .sort((a, b) => a.distance - b.distance);
@@ -348,14 +373,15 @@ function ProjectEditorPage() {
     }
 
     // Subnet: VPC
-    if (block.type === "subnet") {
-      const vpcTarget = potentialTargets.find((t) => t.type === "vpc");
+    if (block.type.includes('subnet')) {
+      const vpcTarget = potentialTargets.find((t) => t.type.includes('vpc') || t.type.includes('virtual-network'));
       if (vpcTarget) return vpcTarget;
     }
 
     // Storage: Subnet
-    if (block.type === "ebs" || block.type === "volume") {
-      const subnetTarget = potentialTargets.find((t) => t.type === "subnet");
+    const isVolumeDisk = block.type.includes('volume') || block.type.includes('ebs') || block.type.includes('disk');
+    if (isVolumeDisk) {
+      const subnetTarget = potentialTargets.find((t) => t.type.includes('subnet'));
       if (subnetTarget) return subnetTarget;
     }
 
@@ -434,8 +460,37 @@ function ProjectEditorPage() {
       setConnections(allConnections);
     }
 
-    // 코드 생성
-    const code = generateTerraformCode(droppedBlocks, allConnections);
+    // 코드 생성 - 현재 프로바이더 사용
+    const currentProvider = providerManager.getCurrentProvider();
+    let code: string;
+
+    if (currentProvider) {
+      console.log(`🔧 [CodeGen] Using ${currentProvider.displayName} provider for code generation`);
+      // 기존 DroppedBlock을 CloudBlock으로 변환
+      const cloudBlocks = droppedBlocks.map(block => ({
+        id: block.id,
+        name: block.name,
+        description: block.properties?.description || block.name,
+        provider: currentProvider.name as any,
+        type: block.type,
+        category: 'network' as any, // 기본값, 실제로는 블록 타입에 따라 매핑 필요
+        icon: null, // 실제로는 블록 타입에 따라 아이콘 매핑 필요
+        color: 'bg-blue-500', // 기본 색상
+        size: block.size,
+        properties: block.properties,
+      }));
+      code = currentProvider.generateCode(cloudBlocks, allConnections);
+    } else {
+      console.warn("⚠️ [CodeGen] No provider found, using empty template");
+      code = `# 프로바이더가 선택되지 않았습니다.
+# 프로젝트를 생성할 때 클라우드 프로바이더를 선택해주세요.
+
+terraform {
+  required_version = ">= 1.0"
+}
+`;
+    }
+
     setGeneratedCode(code);
   }, [
     droppedBlocks,
@@ -446,18 +501,30 @@ function ProjectEditorPage() {
   ]);
 
   const handleBlockDrop = (blockData: any, position: Vector3) => {
-    const blockSizes = {
-      vpc: [4, 0.2, 4] as [number, number, number],
-      subnet: [3, 0.3, 3] as [number, number, number],
-      ec2: [1, 1.5, 1] as [number, number, number],
-      volume: [0.8, 0.8, 0.8] as [number, number, number],
-      "security-group": [1, 2, 1] as [number, number, number],
-      "load-balancer": [2, 1, 1] as [number, number, number],
+    // 블록 타입에 따른 크기 결정 (벤더 접두사 무관)
+    const getBlockSizeByType = (blockId: string): [number, number, number] => {
+      if (blockId.includes('vpc') || blockId.includes('virtual-network')) {
+        return [4, 0.2, 4];
+      }
+      if (blockId.includes('subnet')) {
+        return [3, 0.3, 3];
+      }
+      if (blockId.includes('ec2') || blockId.includes('compute-engine') || blockId.includes('virtual-machine')) {
+        return [1, 1.5, 1];
+      }
+      if (blockId.includes('volume') || blockId.includes('ebs') || blockId.includes('disk')) {
+        return [0.8, 0.8, 0.8];
+      }
+      if (blockId.includes('security-group') || blockId.includes('firewall') || blockId.includes('nsg')) {
+        return [1, 2, 1];
+      }
+      if (blockId.includes('load-balancer')) {
+        return [2, 1, 1];
+      }
+      return [1, 1, 1];
     };
 
-    const blockSize = blockSizes[blockData.id as keyof typeof blockSizes] || [
-      1, 1, 1,
-    ];
+    const blockSize = getBlockSizeByType(blockData.id);
 
     // Canvas3D에서 이미 스택킹과 충돌 검사가 완료된 위치를 그대로 사용
     const finalPosition = position;
@@ -482,18 +549,18 @@ function ProjectEditorPage() {
       size: blockSize,
     };
 
-    // 블록 유형에 따른 기본 속성 추가
-    if (blockData.id === "vpc") {
+    // 블록 유형에 따른 기본 속성 추가 (벤더 접두사 무관)
+    if (blockData.id.includes('vpc') || blockData.id.includes('virtual-network')) {
       newBlock.properties.cidrBlock = "10.0.0.0/16";
       newBlock.properties.enableDnsSupport = true;
       newBlock.properties.enableDnsHostnames = true;
-    } else if (blockData.id === "subnet") {
+    } else if (blockData.id.includes('subnet')) {
       newBlock.properties.cidrBlock = "10.0.1.0/24";
       newBlock.properties.availabilityZone = "ap-northeast-2a";
-    } else if (blockData.id === "ec2") {
+    } else if (blockData.id.includes('ec2') || blockData.id.includes('compute-engine') || blockData.id.includes('virtual-machine')) {
       newBlock.properties.instanceType = "t2.micro";
       newBlock.properties.ami = "ami-12345678";
-    } else if (blockData.id === "security-group") {
+    } else if (blockData.id.includes('security-group') || blockData.id.includes('firewall') || blockData.id.includes('nsg')) {
       newBlock.properties.securityRules = [
         {
           type: "ingress",
@@ -503,9 +570,9 @@ function ProjectEditorPage() {
           cidrBlocks: ["0.0.0.0/0"],
         },
       ];
-    } else if (blockData.id === "load-balancer") {
+    } else if (blockData.id.includes('load-balancer')) {
       newBlock.properties.loadBalancerType = "application";
-    } else if (blockData.id === "volume") {
+    } else if (blockData.id.includes('volume') || blockData.id.includes('ebs') || blockData.id.includes('disk')) {
       newBlock.properties.volumeSize = 8;
       newBlock.properties.volumeType = "gp2";
     }
@@ -682,7 +749,7 @@ function ProjectEditorPage() {
       blockType: string,
       size?: [number, number, number]
     ) => {
-      if (blockType === "vpc" || blockType === "subnet") {
+      if (blockType.includes('vpc') || blockType.includes('virtual-network') || blockType.includes('subnet')) {
         return size?.[1] || 0.2; // foundation 블록들은 얇음
       }
       return size?.[1] || 1; // 일반 블록들
@@ -694,7 +761,7 @@ function ProjectEditorPage() {
       size?: [number, number, number]
     ) => {
       const blockHeight = getBlockHeight(blockType, size);
-      if (blockType === "vpc" || blockType === "subnet") {
+      if (blockType.includes('vpc') || blockType.includes('virtual-network') || blockType.includes('subnet')) {
         return blockHeight / 2; // 바닥에서 블록 높이의 절반만큼 위 (중심점)
       }
       return blockHeight / 2 + 0.1; // 일반 블록들은 약간 위
@@ -707,16 +774,27 @@ function ProjectEditorPage() {
     ) => {
       if (customSize) return customSize;
 
-      const defaultSizes: { [key: string]: [number, number, number] } = {
-        vpc: [4, 0.2, 4],
-        subnet: [3, 0.3, 3],
-        ec2: [1, 1.5, 1],
-        volume: [0.8, 0.8, 0.8],
-        "security-group": [1, 2, 1],
-        "load-balancer": [2, 1, 1],
-      };
+      // 벤더 접두사 무관하게 블록 타입으로 크기 결정
+      if (blockType.includes('vpc') || blockType.includes('virtual-network')) {
+        return [4, 0.2, 4] as [number, number, number];
+      }
+      if (blockType.includes('subnet')) {
+        return [3, 0.3, 3] as [number, number, number];
+      }
+      if (blockType.includes('ec2') || blockType.includes('compute-engine') || blockType.includes('virtual-machine')) {
+        return [1, 1.5, 1] as [number, number, number];
+      }
+      if (blockType.includes('volume') || blockType.includes('ebs') || blockType.includes('disk')) {
+        return [0.8, 0.8, 0.8] as [number, number, number];
+      }
+      if (blockType.includes('security-group') || blockType.includes('firewall') || blockType.includes('nsg')) {
+        return [1, 2, 1] as [number, number, number];
+      }
+      if (blockType.includes('load-balancer')) {
+        return [2, 1, 1] as [number, number, number];
+      }
 
-      return defaultSizes[blockType] || [1, 1, 1];
+      return [1, 1, 1] as [number, number, number];
     };
 
     // 두 블록이 충돌하는지 확인하는 함수 (스택킹 허용 여부 고려)
@@ -963,8 +1041,8 @@ function ProjectEditorPage() {
         finalPosition
       );
     } else {
-      // VPC가 아닌 블록은 반드시 스태킹 대상이 있어야 함
-      const isVPCBlock = movingBlock.type === "vpc";
+      // VPC 계열 블록이 아닌 블록은 반드시 스태킹 대상이 있어야 함
+      const isVPCBlock = movingBlock.type.includes('vpc') || movingBlock.type.includes('virtual-network');
       if (!isVPCBlock) {
         console.log("❌ [APP_MOVE] Non-VPC block cannot be placed in empty space");
 
@@ -1061,7 +1139,9 @@ function ProjectEditorPage() {
       console.log("🔗 Connection created:", {
         from: fromBlock?.type,
         to: toBlock?.type,
-        isEbsConnection: fromBlock?.type === "ebs" || toBlock?.type === "ebs",
+        isVolumeConnection:
+          (fromBlock?.type.includes('volume') || fromBlock?.type.includes('ebs') || fromBlock?.type.includes('disk')) ||
+          (toBlock?.type.includes('volume') || toBlock?.type.includes('ebs') || toBlock?.type.includes('disk')),
       });
     } else {
       console.log("❌ Connection failed");
@@ -1199,7 +1279,26 @@ function ProjectEditorPage() {
     );
     const allConnections = [...nonStackingConnections, ...derivedConnections];
 
-    return generateTerraformCode(droppedBlocks, allConnections);
+    // 현재 프로바이더를 사용한 코드 생성
+    const currentProvider = providerManager.getCurrentProvider();
+    if (currentProvider) {
+      const cloudBlocks = droppedBlocks.map(block => ({
+        id: block.id,
+        name: block.name,
+        description: block.properties?.description || block.name,
+        provider: currentProvider.name as any,
+        type: block.type,
+        category: 'network' as any,
+        icon: null,
+        color: 'bg-blue-500',
+        size: block.size,
+        properties: block.properties,
+      }));
+      return currentProvider.generateCode(cloudBlocks, allConnections);
+    } else {
+      console.warn("⚠️ [Deploy] No provider found");
+      return `# 프로바이더가 선택되지 않았습니다.`;
+    }
   };
 
   const handleDeployProject = async () => {

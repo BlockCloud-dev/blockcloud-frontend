@@ -32,46 +32,59 @@ export function EnhancedDragPreview({ previewState }: EnhancedDragPreviewProps) 
   // position을 그대로 사용 (useDragAndDrop에서 이미 올바른 스택킹 위치 계산)
   const renderPosition = position || new THREE.Vector3(0, 0, 0);
 
-  // 블록 타입별 색상 및 크기 설정
+  // 블록 타입별 색상 및 크기 설정 (벤더 무관)
   const getBlockConfig = (type: string) => {
-    switch (type) {
-      case 'vpc':
-        return {
-          color: '#4A90E2',
-          size: [4, 0.2, 3] as [number, number, number],
-          opacity: 0.8
-        };
-      case 'subnet':
-        return {
-          color: '#7ED321',
-          size: [3, 0.2, 2] as [number, number, number],
-          opacity: 0.8
-        };
-      case 'ebs':
-        return {
-          color: '#F39C12',
-          size: [0.8, 0.4, 0.8] as [number, number, number],
-          opacity: 0.9
-        };
-      case 'ec2':
-        return {
-          color: '#E74C3C',
-          size: [1, 0.6, 1] as [number, number, number],
-          opacity: 0.8
-        };
-      case 'rds':
-        return {
-          color: '#9B59B6',
-          size: [1.2, 0.8, 1.2] as [number, number, number],
-          opacity: 0.8
-        };
-      default:
-        return {
-          color: '#95A5A6',
-          size: [1, 1, 1] as [number, number, number],
-          opacity: 0.7
-        };
+    // VPC/Virtual Network
+    if (type.includes('vpc') || type.includes('virtual-network')) {
+      return {
+        color: '#4A90E2',
+        size: [4, 0.2, 3] as [number, number, number],
+        opacity: 0.8
+      };
     }
+
+    // Subnet
+    if (type.includes('subnet')) {
+      return {
+        color: '#7ED321',
+        size: [3, 0.2, 2] as [number, number, number],
+        opacity: 0.8
+      };
+    }
+
+    // Volume/Disk/EBS
+    if (type.includes('volume') || type.includes('ebs') || type.includes('disk')) {
+      return {
+        color: '#F39C12',
+        size: [0.8, 0.4, 0.8] as [number, number, number],
+        opacity: 0.9
+      };
+    }
+
+    // Compute (EC2/VM/Compute Engine)
+    if (type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine')) {
+      return {
+        color: '#E74C3C',
+        size: [1, 0.6, 1] as [number, number, number],
+        opacity: 0.8
+      };
+    }
+
+    // Database (RDS/Cloud SQL/SQL Database)
+    if (type.includes('rds') || type.includes('cloud-sql') || type.includes('sql-database')) {
+      return {
+        color: '#9B59B6',
+        size: [1.2, 0.8, 1.2] as [number, number, number],
+        opacity: 0.8
+      };
+    }
+
+    // Default
+    return {
+      color: '#95A5A6',
+      size: [1, 1, 1] as [number, number, number],
+      opacity: 0.7
+    };
   };
 
   const { color, size, opacity } = getBlockConfig(blockType || 'default');

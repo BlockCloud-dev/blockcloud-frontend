@@ -134,23 +134,20 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
 
     // 간단한 연결 검증 (실제 검증은 useConnections에서 처리)
     if (fromBlock && toBlock) {
-      // 연결 타입 결정
-      let connectionType: ConnectionType = 'ec2-volume';
+      // 연결 타입 결정 (벤더 무관)
+      let connectionType: ConnectionType = 'compute-volume';
       let properties: any = { description: '수동 생성 연결' };
 
-      if ((fromBlock.type === 'ebs' && toBlock.type === 'ec2') ||
-        (fromBlock.type === 'ec2' && toBlock.type === 'ebs')) {
-        connectionType = 'ebs-ec2-block';
+      // Volume/Disk와 Compute 간의 연결 (벤더 무관)
+      const isVolume = (type: string) => type.includes('volume') || type.includes('ebs') || type.includes('disk');
+      const isCompute = (type: string) => type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine');
+
+      if ((isVolume(fromBlock.type) && isCompute(toBlock.type)) ||
+        (isCompute(fromBlock.type) && isVolume(toBlock.type))) {
+        connectionType = 'compute-volume';
         properties = {
           volumeType: 'additional',
           description: 'Block Volume (Manual Road Connection)'
-        };
-      } else if ((fromBlock.type === 'ec2' && toBlock.type === 'volume') ||
-        (fromBlock.type === 'volume' && toBlock.type === 'ec2')) {
-        connectionType = 'ec2-volume';
-        properties = {
-          volumeType: 'additional',
-          description: 'Additional Storage (Manual Connection)'
         };
       }
 

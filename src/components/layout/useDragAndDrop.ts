@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { Vector3 } from "three";
 import { snapPositionToGrid } from "../../utils/snapGrid";
 import { STACKING_RULES, validateStacking, getStackingHint } from "../../utils/stackingRules";
+import { providerManager } from "../../providers";
 import type { DragAndDropState, SnapGuide } from "./Canvas3DTypes";
 import type { DroppedBlock } from "../../types/blocks";
 
@@ -144,10 +145,11 @@ export const useDragAndDrop = (
     return droppedBlocks.filter(block => position.distanceTo(block.position) < 2);
   }, [droppedBlocks]);
 
-  // 블록 겹침 검사 함수 (EBS/Volume의 경우 더 관대한 겹침 허용)
+  // 블록 겹침 검사 함수 (Volume/Disk 계열의 경우 더 관대한 겹침 허용)
   const areBlocksOverlapping = useCallback((pos1: Vector3, size1: [number, number, number], pos2: Vector3, size2: [number, number, number], dragType?: string): boolean => {
-    // EBS/Volume 블록의 경우 겹침 범위를 더 크게 설정
-    const tolerance = (dragType === 'ebs' || dragType === 'volume') ? 0.3 : 0.1;
+    // Volume/Disk 계열 블록의 경우 겹침 범위를 더 크게 설정
+    const isVolumeDisk = dragType && (dragType.includes('volume') || dragType.includes('ebs') || dragType.includes('disk'));
+    const tolerance = isVolumeDisk ? 0.3 : 0.1;
 
     const bounds1 = {
       xMin: pos1.x - size1[0] / 2 - tolerance,
@@ -212,7 +214,18 @@ export const useDragAndDrop = (
       // 스태킹 대상 블록 찾기 - 스택킹 규칙에 맞는 블록 중 가장 위에 있는 블록
       const dragType = blockData.id;
 
-      const allowedTargetTypes = STACKING_RULES[dragType] || [];
+      // 현재 프로바이더에서 스태킹 규칙 가져오기
+      const currentProvider = providerManager.getCurrentProvider();
+      let allowedTargetTypes: string[] = [];
+
+      if (currentProvider) {
+        allowedTargetTypes = currentProvider.getStackableTargets(dragType);
+        console.log(`🔍 [Drop] Using ${currentProvider.name} stacking rules for ${dragType}:`, allowedTargetTypes);
+      } else {
+        // 폴백으로 기존 AWS 규칙 사용
+        allowedTargetTypes = STACKING_RULES[dragType] || [];
+        console.log(`⚠️ [Drop] Using fallback AWS stacking rules for ${dragType}:`, allowedTargetTypes);
+      }
 
       // 허용된 타겟 타입의 블록들만 필터링
       const validStackableBlocks = stackableBlocks.filter(block =>
@@ -233,10 +246,13 @@ export const useDragAndDrop = (
         })
         : null;
 
-      // vpc를 제외한 모든 블록은 반드시 stackingTarget이 있어야만 드롭 가능
-      const isVPCBlock = blockData.id === "vpc";
+      // VPC 계열 블록을 제외한 모든 블록은 반드시 stackingTarget이 있어야만 드롭 가능
+      // aws-vpc, gcp-vpc-network, azure-virtual-network 모두 체크
+      const isVPCBlock = dragType.includes('vpc') || dragType.includes('virtual-network');
       if (!isVPCBlock && !stackingTarget) {
-        const hint = getStackingHint(blockData.id);
+        const hint = currentProvider ?
+          currentProvider.getStackingHint(blockData.id) :
+          getStackingHint(blockData.id);
         toast.error(`${blockData.name || blockData.id} 블록은 ${hint} 올려야 합니다.`, {
           id: `block-drop-restriction-${blockData.id}`, // 중복 방지를 위한 고유 ID
           position: "bottom-center",
@@ -252,7 +268,9 @@ export const useDragAndDrop = (
         if (!isValidStacking) {
           console.log("❌ [Drop] Invalid stacking rule detected");
 
-          const hint = getStackingHint(blockData.id);
+          const hint = currentProvider ?
+            currentProvider.getStackingHint(blockData.id) :
+            getStackingHint(blockData.id);
           toast.error(`${blockData.name || blockData.id} 블록은 ${hint} 올릴 수 있습니다. ${stackingTarget.type} 위에는 올릴 수 없습니다.`, {
             id: `invalid-stacking-drop-${blockData.id}`,
             position: "bottom-center",
@@ -285,13 +303,19 @@ export const useDragAndDrop = (
       // 스태킹이 가능한 경우 Y축만 조정 (X, Z는 마우스 위치 유지)
       if (isValidStack && stackingTarget) {
         const getBlockHeight = (blockType: string, size?: [number, number, number]) => {
-          if (blockType === 'vpc' || blockType === 'subnet') {
-            return size?.[1] || 0.2; // foundation 블록들은 얇음
+          // VPC 계열 블록들
+          if (blockType.includes('vpc') || blockType.includes('virtual-network')) {
+            return size?.[1] || 0.2;
           }
-          if (blockType === 'volume' || blockType === 'ebs') {
-            return size?.[1] || 0.5; // EBS 볼륨은 작음
+          // Subnet 계열 블록들
+          if (blockType.includes('subnet')) {
+            return size?.[1] || 0.2;
           }
-          return size?.[1] || 1; // 일반 블록들
+          // Volume/Disk 계열 블록들
+          if (blockType.includes('volume') || blockType.includes('ebs') || blockType.includes('disk')) {
+            return size?.[1] || 0.5;
+          }
+          return size?.[1] || 1;
         };
 
         const targetHeight = getBlockHeight(stackingTarget.type, stackingTarget.size);
@@ -333,8 +357,9 @@ export const useDragAndDrop = (
         originalMouse: { x, y },
       });
 
-      // EBS/Volume 블록인 경우 부트볼륨 vs 블록볼륨 분석
-      if (blockData.id === 'volume' || blockData.id === 'ebs') {
+      // Volume/Disk 계열 블록인 경우 부트볼륨 vs 블록볼륨 분석
+      const isVolumeDisk = blockData.id.includes('volume') || blockData.id.includes('ebs') || blockData.id.includes('disk');
+      if (isVolumeDisk) {
         // 드롭 후 모든 블록 상태를 가져와서 분석하기 위해 잠시 대기
         setTimeout(() => {
           const volumeType = analyzeEBSVolumeType(snappedPosition, droppedBlocks);
@@ -404,14 +429,25 @@ export const useDragAndDrop = (
     // 스태킹 대상 블록 찾기 - 스택킹 규칙에 맞는 블록 중 가장 위에 있는 블록
     const dragType = dragData.id;
 
-    const allowedTargetTypes = STACKING_RULES[dragType] || [];
+    // 현재 프로바이더에서 스태킹 규칙 가져오기
+    const currentProvider = providerManager.getCurrentProvider();
+    let allowedTargetTypes: string[] = [];
+
+    if (currentProvider) {
+      allowedTargetTypes = currentProvider.getStackableTargets(dragType);
+      console.log(`🔍 [Preview] Using ${currentProvider.name} stacking rules for ${dragType}:`, allowedTargetTypes);
+    } else {
+      // 폴백으로 기존 규칙 사용
+      allowedTargetTypes = STACKING_RULES[dragType] || [];
+      console.log(`⚠️ [Preview] Using fallback stacking rules for ${dragType}:`, allowedTargetTypes);
+    }
 
     // 허용된 타겟 타입의 블록들만 필터링
     const validStackableBlocks = stackableBlocks.filter(block =>
       allowedTargetTypes.includes(block.type)
     );
 
-    console.log("🔍 [updateDragPreview] Valid stackable blocks:", {
+    console.log("🔍 [Preview] Valid stackable blocks:", {
       dragType,
       allowedTargetTypes,
       validCount: validStackableBlocks.length,
@@ -439,18 +475,24 @@ export const useDragAndDrop = (
       });
     }
 
-    // VPC가 아닌 블록은 반드시 스태킹 대상이 있어야 함
-    const isVPCBlock = dragType === "vpc";
+    // VPC 계열 블록이 아닌 블록은 반드시 스태킹 대상이 있어야 함
+    const isVPCBlock = dragType.includes('vpc') || dragType.includes('virtual-network');
     const canPlaceDirectly = isVPCBlock || isValidStack;
 
     // 스태킹이 가능한 경우 Y축만 조정 (X, Z는 마우스 위치 유지)
     if (isValidStack && stackingTarget) {
       const getBlockHeight = (blockType: string, size?: [number, number, number]) => {
-        if (blockType === 'vpc' || blockType === 'subnet') {
+        // VPC 계열 블록들 (aws-vpc, gcp-vpc-network, azure-virtual-network)
+        if (blockType.includes('vpc') || blockType.includes('virtual-network')) {
           return size?.[1] || 0.2; // foundation 블록들은 얇음
         }
-        if (blockType === 'volume' || blockType === 'ebs') {
-          return size?.[1] || 0.5; // EBS 볼륨은 작음
+        // Subnet 계열 블록들 (aws-subnet, gcp-subnet, azure-subnet)
+        if (blockType.includes('subnet')) {
+          return size?.[1] || 0.2; // subnet도 얇음
+        }
+        // Volume/Disk 계열 블록들
+        if (blockType.includes('volume') || blockType.includes('ebs') || blockType.includes('disk')) {
+          return size?.[1] || 0.5; // 볼륨/디스크는 작음
         }
         return size?.[1] || 1; // 일반 블록들
       };
@@ -531,11 +573,14 @@ export const useDragAndDrop = (
     onDragPreview?.(snappedPosition, dragData);
   }, [dragState.dragData, currentDragData, droppedBlocks, onDragPreview, checkCollision, generateSnapGuides, findNearbyBlocks, areBlocksOverlapping]);
 
-  // EBS 볼륨 타입 분석 함수 (부트볼륨 vs 블록볼륨)
+  // Volume/Disk 타입 분석 함수 (부트볼륨 vs 블록볼륨)
   const analyzeEBSVolumeType = useCallback((ebsPosition: Vector3, allBlocks: DroppedBlock[]) => {
-    // EBS 위에 EC2가 있는지 확인
+    // Volume/Disk 위에 Compute 인스턴스가 있는지 확인
+    const isComputeInstance = (type: string) =>
+      type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine');
+
     const ec2AboveEBS = allBlocks.find(block => {
-      if (block.type !== 'ec2') return false;
+      if (!isComputeInstance(block.type)) return false;
 
       // EC2가 EBS와 XZ 평면에서 겹치고 Y 좌표가 더 높은지 확인
       const isOverlapping = areBlocksOverlapping(

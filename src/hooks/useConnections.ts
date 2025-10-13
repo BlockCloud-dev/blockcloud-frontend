@@ -143,44 +143,44 @@ export const useConnections = () => {
       return { valid: false, reason: '이미 연결되어 있습니다.' };
     }
 
-    // AWS 계층적 아키텍처 연결 규칙 (VPC → Subnet → Resources)
-    const connectionRules: Record<string, string[]> = {
-      // === 상위 → 하위 계층 연결 (AWS 실제 구조) ===
-      'vpc': ['subnet'], // VPC → 서브넷
-      'subnet': ['ebs', 'ec2', 'security-group', 'load-balancer'], // 서브넷 → 리소스들
-      'ebs': ['ec2'], // EBS → EC2 (부트볼륨/블록볼륨)
-      'ec2': ['ebs', 'volume'], // EC2 → EBS/Volume (양방향 허용)
-      'volume': ['ec2'], // 볼륨 → EC2
-    };
+    // 블록 타입 헬퍼 함수들 (벤더 접두사 무관)
+    const isVPC = (type: string) => type.includes('vpc') || type.includes('virtual-network');
+    const isSubnet = (type: string) => type.includes('subnet');
+    const isCompute = (type: string) => type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine');
+    const isVolume = (type: string) => type.includes('volume') || type.includes('ebs') || type.includes('disk');
+    const isSecurity = (type: string) => type.includes('security-group') || type.includes('firewall') || type.includes('nsg');
+    const isLoadBalancer = (type: string) => type.includes('load-balancer');
 
-    if (connectionRules[fromType]?.includes(toType)) {
-      // AWS 계층 구조에 맞는 연결 타입 결정
-      let connectionType: ConnectionType;
+    // 계층적 아키텍처 연결 규칙 검증 (벤더 무관)
+    let isValidRule = false;
+    let connectionType: ConnectionType | undefined;
 
-      if (fromType === 'vpc' && toType === 'subnet') {
-        connectionType = 'vpc-subnet'; // VPC → 서브넷
-      } else if (fromType === 'subnet' && toType === 'ebs') {
-        connectionType = 'subnet-ebs'; // 서브넷 → EBS
-      } else if (fromType === 'subnet' && toType === 'ec2') {
-        connectionType = 'subnet-ec2'; // 서브넷 → EC2
-      } else if ((fromType === 'ebs' && toType === 'ec2') || (fromType === 'ec2' && toType === 'ebs')) {
-        connectionType = 'ebs-ec2-block'; // EBS ↔ EC2 (블록 볼륨, 양방향)
-      } else if (fromType === 'subnet' && toType === 'security-group') {
-        connectionType = 'subnet-security-group'; // 서브넷 → 보안그룹
-      } else if (fromType === 'subnet' && toType === 'load-balancer') {
-        connectionType = 'subnet-load-balancer'; // 서브넷 → 로드밸런서
-      } else if ((fromType === 'volume' && toType === 'ec2') || (fromType === 'ec2' && toType === 'volume')) {
-        connectionType = 'ec2-volume'; // EC2 ↔ Volume (양방향)
-      } else {
-        connectionType = `${fromType}-${toType}` as ConnectionType;
-      }
+    // VPC → Subnet
+    if (isVPC(fromType) && isSubnet(toType)) {
+      isValidRule = true;
+      connectionType = 'vpc-subnet';
+    }
+    // Subnet → Resources (Compute, Volume, Security, LoadBalancer)
+    else if (isSubnet(fromType) && (isCompute(toType) || isVolume(toType) || isSecurity(toType) || isLoadBalancer(toType))) {
+      isValidRule = true;
+      if (isCompute(toType)) connectionType = 'subnet-compute';
+      else if (isVolume(toType)) connectionType = 'subnet-volume';
+      else if (isSecurity(toType)) connectionType = 'subnet-security-group';
+      else if (isLoadBalancer(toType)) connectionType = 'subnet-load-balancer';
+    }
+    // Volume ↔ Compute (양방향)
+    else if ((isVolume(fromType) && isCompute(toType)) || (isCompute(fromType) && isVolume(toType))) {
+      isValidRule = true;
+      connectionType = 'compute-volume';
+    }
 
+    if (isValidRule && connectionType) {
       return { valid: true, connectionType };
     }
 
     return {
       valid: false,
-      reason: `${fromType}에서 ${toType}으로의 연결은 허용되지 않습니다. AWS 계층 구조를 확인하세요.`
+      reason: `${fromType}에서 ${toType}으로의 연결은 허용되지 않습니다. 계층 구조를 확인하세요.`
     };
   }, [connections]);
 
@@ -255,12 +255,16 @@ export const useConnections = () => {
     console.log('🔗 [CONNECTIONS] Connection validation result:', validation);
 
     if (validation.valid && validation.connectionType) {
-      // 잘못된 연결 방향 체크 - AWS 계층 구조 준수
-      if ((fromBlock.type === 'ec2' && (toBlock.type === 'vpc' || toBlock.type === 'subnet')) ||
-        (fromBlock.type === 'ebs' && (toBlock.type === 'vpc' || toBlock.type === 'subnet')) ||
-        (fromBlock.type === 'subnet' && toBlock.type === 'ebs') ||
-        (fromBlock.type === 'volume' && toBlock.type === 'subnet')) {
-        console.log('🚫 [CONNECTIONS] AWS 계층 구조에 맞지 않는 연결입니다.');
+      // 블록 타입 헬퍼 함수들
+      const isVPC = (type: string) => type.includes('vpc') || type.includes('virtual-network');
+      const isSubnet = (type: string) => type.includes('subnet');
+      const isCompute = (type: string) => type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine');
+      const isVolume = (type: string) => type.includes('volume') || type.includes('ebs') || type.includes('disk');
+
+      // 잘못된 연결 방향 체크 - 계층 구조 준수
+      if ((isCompute(fromBlock.type) && (isVPC(toBlock.type) || isSubnet(toBlock.type))) ||
+        (isVolume(fromBlock.type) && (isVPC(toBlock.type) || isSubnet(toBlock.type)))) {
+        console.log('🚫 [CONNECTIONS] 계층 구조에 맞지 않는 연결입니다.');
         cancelConnecting();
         return false;
       }
@@ -268,8 +272,8 @@ export const useConnections = () => {
       // 연결 속성 결정
       let connectionProperties: any = {};
 
-      // EC2와 Volume 간의 연결인지 확인 (추가 블록 스토리지)
-      if (validation.connectionType === 'ec2-volume' || validation.connectionType === 'volume-ec2') {
+      // Compute와 Volume 간의 연결인지 확인 (추가 블록 스토리지)
+      if (validation.connectionType === 'compute-volume') {
         connectionProperties = {
           volumeType: 'additional',
           description: '추가 블록 스토리지 (연결)'
@@ -277,13 +281,13 @@ export const useConnections = () => {
         console.log('💾 [CONNECTIONS] Additional block storage relationship created via road connection');
       }
 
-      // EBS와 EC2 간의 연결인지 확인 (블록 볼륨) - 양방향 지원
-      if ((fromBlock.type === 'ebs' && toBlock.type === 'ec2') || (fromBlock.type === 'ec2' && toBlock.type === 'ebs')) {
+      // Volume과 Compute 간의 연결인지 확인 (블록 볼륨) - 양방향 지원
+      if ((isVolume(fromBlock.type) && isCompute(toBlock.type)) || (isCompute(fromBlock.type) && isVolume(toBlock.type))) {
         connectionProperties = {
           volumeType: 'additional',
           description: 'Block Volume (Manual Road Connection)'
         };
-        console.log('💾 [CONNECTIONS] EBS block volume relationship created via road connection');
+        console.log('💾 [CONNECTIONS] Volume-Compute block volume relationship created via road connection');
       }
 
       console.log('✅ [CONNECTIONS] 새로운 연결 생성:', {
@@ -327,39 +331,37 @@ export const useConnections = () => {
       console.log('🔍 [StackingDetection] Starting stacking detection for', blocks.length, 'blocks');
       console.log('🔍 [StackingDetection] Current connections count:', currentConnections.length);
 
-      // AWS 아키텍처의 물리적 스태킹 규칙 정의
-      const stackingRules: Record<string, string[]> = {
-        // VPC는 기반 계층 (스택 불가)
-        'vpc': [],
+      // 블록 타입 헬퍼 함수들 (벤더 접두사 무관)
+      const isVPC = (type: string) => type.includes('vpc') || type.includes('virtual-network');
+      const isSubnet = (type: string) => type.includes('subnet');
+      const isCompute = (type: string) => type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine');
+      const isVolume = (type: string) => type.includes('volume') || type.includes('ebs') || type.includes('disk');
+      const isSecurity = (type: string) => type.includes('security-group') || type.includes('firewall') || type.includes('nsg');
+      const isLoadBalancer = (type: string) => type.includes('load-balancer');
+
+      // 물리적 스태킹 규칙 검증 함수 (벤더 무관)
+      const canStackOn = (upperType: string, lowerType: string): boolean => {
         // Subnet은 VPC 위에 스택
-        'subnet': ['vpc'],
-        // EC2는 Subnet 위 또는 EBS Volume(부트볼륨) 위에 스택
-        'ec2': ['subnet', 'ebs', 'volume'], // EBS 추가
-        // EBS는 Subnet 위에 스택
-        'ebs': ['subnet'],
-        // Security Group, Load Balancer는 Subnet 위에 스택
-        'security-group': ['subnet'],
-        'load-balancer': ['subnet'],
-        // Volume은 EC2 아래에만 스택 (기존 볼륨 타입)
-        'volume': ['ec2']
+        if (isSubnet(upperType) && isVPC(lowerType)) return true;
+        // Compute는 Subnet 또는 Volume 위에 스택
+        if (isCompute(upperType) && (isSubnet(lowerType) || isVolume(lowerType))) return true;
+        // Volume은 Subnet 위에 스택
+        if (isVolume(upperType) && isSubnet(lowerType)) return true;
+        // Security, LoadBalancer는 Subnet 위에 스택
+        if ((isSecurity(upperType) || isLoadBalancer(upperType)) && isSubnet(lowerType)) return true;
+        return false;
       };
 
       const connectionsToCreate: Connection[] = [];
 
       blocks.forEach(upperBlock => {
         console.log('🔍 [StackingDetection] Checking upper block:', upperBlock.type, upperBlock.id.substring(0, 8), 'at position:', upperBlock.position);
-        const allowedLowerTypes = stackingRules[upperBlock.type] || [];
-        console.log('🔍 [StackingDetection] Allowed lower types for', upperBlock.type, ':', allowedLowerTypes);
-
-        if (allowedLowerTypes.length === 0) {
-          console.log('🔍 [StackingDetection] No allowed lower types, skipping');
-          return;
-        }
 
         // 같은 위치에 있는 하위 블록들 찾기
         const stackedBlocks = blocks.filter(lowerBlock => {
           if (lowerBlock.id === upperBlock.id) return false;
-          if (!allowedLowerTypes.includes(lowerBlock.type)) return false;
+          // 벤더 무관 스태킹 규칙 검증
+          if (!canStackOn(upperBlock.type, lowerBlock.type)) return false;
 
           // 블록 크기 정보 가져오기 (size가 없는 경우 기본값 사용)
           const upperSize = upperBlock.size || [1, 1, 1];
@@ -434,28 +436,24 @@ export const useConnections = () => {
             return; // 이미 생성 예정인 연결이 있으면 건너뛰기
           }
 
-          // AWS 계층 구조에 맞는 스택 연결 타입 결정
+          // 계층 구조에 맞는 스택 연결 타입 결정 (벤더 무관)
           let connectionType: ConnectionType;
           let connectionProperties: any = { stackConnection: true };
 
-          if (lowerBlock.type === 'vpc' && upperBlock.type === 'subnet') {
+          if (isVPC(lowerBlock.type) && isSubnet(upperBlock.type)) {
             connectionType = 'vpc-subnet';
-          } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'ec2') {
-            connectionType = 'subnet-ec2';
-          } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'ebs') {
-            connectionType = 'subnet-ebs';
-          } else if (lowerBlock.type === 'ebs' && upperBlock.type === 'ec2') {
-            // EC2가 EBS 위에 스택된 경우 - 새로운 스태킹 시스템에서 처리하므로 여기서는 제외
-            console.log('💾 [레거시] EBS-EC2 스택 감지 - 새로운 스태킹 시스템에서 처리됨');
+          } else if (isSubnet(lowerBlock.type) && isCompute(upperBlock.type)) {
+            connectionType = 'subnet-compute';
+          } else if (isSubnet(lowerBlock.type) && isVolume(upperBlock.type)) {
+            connectionType = 'subnet-volume';
+          } else if (isVolume(lowerBlock.type) && isCompute(upperBlock.type)) {
+            // Compute가 Volume 위에 스택된 경우 - 새로운 스태킹 시스템에서 처리하므로 여기서는 제외
+            console.log('💾 [스태킹] Volume-Compute 스택 감지 - 새로운 스태킹 시스템에서 처리됨');
             return; // 연결 생성하지 않음
-          } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'security-group') {
+          } else if (isSubnet(lowerBlock.type) && isSecurity(upperBlock.type)) {
             connectionType = 'subnet-security-group';
-          } else if (lowerBlock.type === 'subnet' && upperBlock.type === 'load-balancer') {
+          } else if (isSubnet(lowerBlock.type) && isLoadBalancer(upperBlock.type)) {
             connectionType = 'subnet-load-balancer';
-          } else if (lowerBlock.type === 'volume' && upperBlock.type === 'ec2') {
-            // EC2가 Volume 위에 스택된 경우 - 새로운 스태킹 시스템에서 처리하므로 여기서는 제외  
-            console.log('💾 [레거시] Volume-EC2 스택 감지 - 새로운 스태킹 시스템에서 처리됨');
-            return; // 연결 생성하지 않음
           } else {
             return; // 정의되지 않은 스택 관계
           }

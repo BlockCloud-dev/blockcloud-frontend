@@ -9,9 +9,10 @@ interface StackGuideProps {
 export function StackGuide({ position, targetBlocks, isDragging }: StackGuideProps) {
   if (!isDragging || targetBlocks.length === 0) return null;
 
-  // 블록 높이 계산 함수
+  // 블록 높이 계산 함수 (벤더 무관)
   const getBlockHeight = (blockType: string, size?: [number, number, number]) => {
-    if (blockType === 'vpc' || blockType === 'subnet') {
+    // VPC/Virtual Network 또는 Subnet인 경우
+    if (blockType.includes('vpc') || blockType.includes('virtual-network') || blockType.includes('subnet')) {
       return size?.[1] || 0.2; // foundation 블록들은 얇음
     }
     return size?.[1] || 1; // 일반 블록들

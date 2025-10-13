@@ -10,71 +10,18 @@ import {
   Layers,
 } from "lucide-react";
 import { useProjectStore } from "../../stores";
+import { providerManager, CloudProviderType } from "../../providers";
 
 interface BlockPaletteProps {
   onDragStart?: (blockData: any) => void;
   onDragEnd?: () => void;
 }
 
-const awsBlocks = [
-  {
-    id: "vpc",
-    name: "VPC",
-    description: "가상 프라이빗 클라우드",
-    icon: Building2,
-    color: "bg-blue-500",
-    type: "foundation",
-    category: "Network",
-  },
-  {
-    id: "subnet",
-    name: "Subnet",
-    description: "서브넷",
-    icon: Route,
-    color: "bg-green-500",
-    type: "network",
-    category: "Network",
-  },
-  {
-    id: "ec2",
-    name: "EC2",
-    description: "인스턴스",
-    icon: Server,
-    color: "bg-orange-500",
-    type: "compute",
-    category: "Compute",
-  },
-  {
-    id: "volume",
-    name: "EBS Volume",
-    description: "스토리지",
-    icon: Archive,
-    color: "bg-purple-500",
-    type: "storage",
-    category: "Storage",
-  },
-  {
-    id: "security-group",
-    name: "Security Group",
-    description: "보안 그룹",
-    icon: Shield,
-    color: "bg-red-500",
-    type: "security",
-    category: "Security",
-  },
-  {
-    id: "load-balancer",
-    name: "Load Balancer",
-    description: "로드 밸런서",
-    icon: Cloud,
-    color: "bg-yellow-500",
-    type: "network",
-    category: "Load Balancer",
-  },
-];
+// 폴백용 AWS 블록 제거 - 이제 프로바이더 시스템에서만 가져옴
 
 const CSP_TABS = ["AWS", "GCP", "Azure"];
 const CATEGORY_TABS = [
+  "all",
   "Compute",
   "Network",
   "Storage",
@@ -82,6 +29,25 @@ const CATEGORY_TABS = [
   "Load Balancer",
   "DNS",
 ];
+
+// 카테고리 매핑 함수 - BlockCategory enum을 UI 카테고리로 변환
+const mapCategoryToUI = (category: string): string => {
+  // BlockCategory enum 값들을 UI에서 사용하는 카테고리 탭과 매핑
+  const categoryMap: Record<string, string> = {
+    'compute': 'Compute',
+    'network': 'Network',
+    'storage': 'Storage',
+    'security': 'Security',
+    'database': 'Storage', // 데이터베이스를 Storage 카테고리로 매핑 (UI 단순화)
+    'load-balancer': 'Load Balancer',
+    'dns': 'DNS'
+  };
+
+  const normalizedCategory = category.toLowerCase().replace(/_/g, '-');
+  const result = categoryMap[normalizedCategory] || 'Network';
+
+  return result;
+};
 
 export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
   // Zustand에서 CSP 상태 가져오기
@@ -93,23 +59,62 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
   const [selectedCategory, setSelectedCategory] = React.useState<string>("all");
 
   const getBlocksForCSP = (csp: string) => {
+    console.log(`🔍 [BlockPalette] Getting blocks for CSP: ${csp}`);
+
+    // 새로운 프로바이더 시스템 사용
+    let providerType: CloudProviderType;
     switch (csp) {
       case "AWS":
-        return awsBlocks;
+        providerType = CloudProviderType.AWS;
+        break;
       case "GCP":
-        return []; // TODO: GCP 블록 추가
+        providerType = CloudProviderType.GCP;
+        break;
       case "Azure":
-        return []; // TODO: Azure 블록 추가
+        providerType = CloudProviderType.AZURE;
+        break;
       default:
-        return [];
+        providerType = CloudProviderType.AWS;
     }
+
+    const provider = providerManager.getProvider(providerType);
+    if (!provider) {
+      console.warn(`❌ [BlockPalette] Provider not found: ${providerType}`);
+      return []; // 프로바이더가 없으면 빈 배열 반환
+    }
+
+    const blocks = provider.getBlocks();
+    console.log(`✅ [BlockPalette] Found ${blocks.length} blocks for ${csp}:`, blocks.map(b => `${b.name}(${b.type})`));
+
+    // 기존 형식으로 변환 (UI 호환성을 위해)
+    const convertedBlocks = blocks.map(block => {
+      const converted = {
+        id: block.type,
+        name: block.name,
+        description: block.description,
+        icon: block.icon,
+        color: block.color,
+        type: block.category.toLowerCase(),
+        category: mapCategoryToUI(block.category),
+      };
+      console.log(`🔄 [BlockPalette] Converting block: ${block.name} → category: ${converted.category}`);
+      return converted;
+    });
+
+    console.log(`📦 [BlockPalette] Converted blocks for UI:`, convertedBlocks);
+    return convertedBlocks;
   };
 
-  const filteredBlocks = getBlocksForCSP(selectedCSP).filter(
+  const allBlocks = getBlocksForCSP(selectedCSP);
+  const filteredBlocks = allBlocks.filter(
     (b) =>
-      b.category === selectedCategory &&
+      (selectedCategory === "all" || b.category === selectedCategory) &&
       b.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  console.log(`🔍 [BlockPalette] Filtering - CSP: ${selectedCSP}, Category: ${selectedCategory}, Search: "${searchTerm}"`);
+  console.log(`📊 [BlockPalette] All blocks: ${allBlocks.length}, Filtered: ${filteredBlocks.length}`);
+  console.log(`📋 [BlockPalette] Filtered blocks:`, filteredBlocks.map(b => `${b.name}(${b.category})`));
 
   return (
     <div className="h-full flex flex-col flex-1 min-w-0 px-4 py-3">
@@ -119,8 +124,8 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
           <button
             key={csp}
             className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${selectedCSP === csp
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-600"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200 text-gray-600"
               }`}
             onClick={() => setCurrentCSP(csp as "AWS" | "GCP" | "Azure")}
           >
@@ -135,12 +140,12 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
           <button
             key={cat}
             className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors text-xs font-medium ${selectedCategory === cat
-                ? "bg-blue-100 text-blue-700 border border-blue-400"
-                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+              ? "bg-blue-100 text-blue-700 border border-blue-400"
+              : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
               }`}
             onClick={() => setSelectedCategory(cat)}
           >
-            {cat}
+            {cat === "all" ? "전체" : cat}
           </button>
         ))}
       </div>
@@ -167,14 +172,15 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
         ) : (
           filteredBlocks.map((block) => {
             const Icon = block.icon;
-            const requiresStacking = block.id !== "vpc";
-            const stackingHints = {
-              "subnet": "VPC 위에",
-              "ec2": "서브넷/EBS 위에",
-              "security-group": "VPC/서브넷 위에",
-              "volume": "서브넷 위에",
-              "load-balancer": "서브넷 위에"
-            };
+            // VPC 계열 블록인지 확인 (aws-vpc, gcp-vpc-network, azure-virtual-network)
+            const isBaseBlock = block.id.includes('vpc') || block.id.includes('virtual-network');
+            const requiresStacking = !isBaseBlock;
+
+            // 현재 프로바이더에서 스태킹 힌트 가져오기
+            const currentProvider = providerManager.getCurrentProvider();
+            const stackingHint = currentProvider ?
+              currentProvider.getStackingHint(block.id) :
+              "다른 블록 위에";
 
             return (
               <div
@@ -211,7 +217,7 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
                     {block.description}
                     {requiresStacking && (
                       <span className="block text-xs text-blue-600 mt-0.5">
-                        {stackingHints[block.id as keyof typeof stackingHints] || "다른 블록 위에"} 배치
+                        {stackingHint} 배치
                       </span>
                     )}
                   </div>

@@ -31,30 +31,36 @@ export const useStacking = (
     });
   }, [stackableBlocks]);
 
-  // 스태킹 유효성 검증
+  // 스태킹 유효성 검증 (벤더 무관)
   const isValidStack = useMemo(() => {
     if (!stackingTarget || !currentDragData) return false;
 
     const dragType = currentDragData.type;
     const targetType = stackingTarget.type;
 
-    // 스태킹 규칙 정의
-    const stackingRules: Record<string, string[]> = {
-      vpc: [], // VPC는 최하단
-      subnet: ["vpc"], // 서브넷은 VPC 위에만
-      "security-group": ["vpc", "subnet"], // 보안그룹은 VPC나 서브넷 위에
-      ec2: ["subnet"], // EC2는 서브넷 위에만
-      "load-balancer": ["subnet"], // 로드밸런서는 서브넷 위에만
-      volume: ["ec2"], // 볼륨은 EC2 위에만
-    };
+    // 벤더 무관 헬퍼 함수
+    const isVPC = (type: string) => type.includes('vpc') || type.includes('virtual-network');
+    const isSubnet = (type: string) => type.includes('subnet');
+    const isCompute = (type: string) => type.includes('ec2') || type.includes('compute-engine') || type.includes('virtual-machine');
+    const isVolume = (type: string) => type.includes('volume') || type.includes('ebs') || type.includes('disk');
+    const isSecurity = (type: string) => type.includes('security-group') || type.includes('firewall') || type.includes('nsg');
+    const isLoadBalancer = (type: string) => type.includes('load-balancer');
 
-    const allowedTargets = stackingRules[dragType] || [];
-    return allowedTargets.includes(targetType);
+    // 벤더 무관 스태킹 규칙
+    if (isVPC(dragType)) return false; // VPC는 최하단
+    if (isSubnet(dragType) && isVPC(targetType)) return true;
+    if (isSecurity(dragType) && (isVPC(targetType) || isSubnet(targetType))) return true;
+    if (isCompute(dragType) && (isSubnet(targetType) || isVolume(targetType))) return true;
+    if (isLoadBalancer(dragType) && isSubnet(targetType)) return true;
+    if (isVolume(dragType) && (isSubnet(targetType) || isCompute(targetType))) return true;
+
+    return false;
   }, [stackingTarget, currentDragData]);
 
-  // 블록 높이 계산
+  // 블록 높이 계산 (벤더 무관)
   const getBlockHeight = useCallback((blockType: string, size?: [number, number, number]) => {
-    if (blockType === 'vpc' || blockType === 'subnet') {
+    // VPC/Virtual Network 또는 Subnet인 경우
+    if (blockType.includes('vpc') || blockType.includes('virtual-network') || blockType.includes('subnet')) {
       return size?.[1] || 0.2; // foundation 블록들은 얇음
     }
     return size?.[1] || 1; // 일반 블록들

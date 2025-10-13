@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import * as THREE from 'three';
 import { snapToGrid } from '../../utils/snapGrid';
-import { getEBSRoleColor, getEBSRoleLabel } from '../../utils/ebsRoleManager';
+import { getVolumeRoleColor, getVolumeRoleLabel } from '../../utils/volumeRoleManager';
 
 interface BaseBlockProps {
   position: [number, number, number];
@@ -11,7 +11,7 @@ interface BaseBlockProps {
   size: [number, number, number];
   label?: string;
   blockType?: string; // 블록 타입 추가
-  ebsRole?: 'boot' | 'block-storage' | 'unassigned'; // EBS 역할 추가
+  volumeRole?: 'boot' | 'block-storage' | 'unassigned'; // Volume 역할 추가 (벤더 무관)
   onClick?: () => void;
   onRightClick?: (event: any) => void;
   onMove?: (newPosition: Vector3) => void;
@@ -35,7 +35,7 @@ export function BaseBlock({
   size,
   label = '',
   blockType,
-  ebsRole,
+  volumeRole,
   onClick,
   onRightClick,
   onMove,
@@ -400,18 +400,18 @@ export function BaseBlock({
   // 스택 레벨에 따른 강조 효과
   const stackGlow = isStacked ? 0.1 + stackLevel * 0.05 : 0;
 
-  // EBS 블록의 경우 역할에 따른 색상 결정
+  // Volume 블록의 경우 역할에 따른 색상 결정 (벤더 무관)
   const getBlockColor = () => {
-    if (blockType === 'volume' && ebsRole) {
-      return getEBSRoleColor(ebsRole);
+    if (blockType === 'volume' && volumeRole) {
+      return getVolumeRoleColor(volumeRole);
     }
     return color;
   };
 
-  // EBS 블록의 역할 표시 라벨
+  // Volume 블록의 역할 표시 라벨 (벤더 무관)
   const getDisplayLabel = () => {
-    if (blockType === 'volume' && ebsRole && ebsRole !== 'unassigned') {
-      return getEBSRoleLabel(ebsRole);
+    if (blockType === 'volume' && volumeRole && volumeRole !== 'unassigned') {
+      return getVolumeRoleLabel(volumeRole);
     }
     return label;
   };
@@ -477,13 +477,13 @@ export function BaseBlock({
             )} */}
 
       {/* EBS 역할 표시 (volume 타입만) */}
-      {blockType === 'volume' && ebsRole && ebsRole !== 'unassigned' && (
+      {blockType === 'volume' && volumeRole && volumeRole !== 'unassigned' && (
         <group position={[position[0], position[1] + size[1] / 2 + 0.2, position[2]]}>
           {/* 역할 표시 배경 */}
           <mesh>
             <planeGeometry args={[displayLabel.length * 0.1 + 0.3, 0.25]} />
             <meshBasicMaterial
-              color={ebsRole === 'boot' ? '#ff6b35' : '#4ecdc4'}
+              color={volumeRole === 'boot' ? '#ff6b35' : '#4ecdc4'}
               transparent
               opacity={0.8}
             />

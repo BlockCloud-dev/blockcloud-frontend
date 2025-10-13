@@ -250,198 +250,216 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
     return null;
   };
 
-  // 블록 타입별 속성 렌더링
+  // 블록 타입별 속성 렌더링 (벤더 무관)
   const renderBlockProperties = () => {
-    switch (selectedBlock.type) {
-      case 'vpc':
-        return (
-          <>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
-            {renderInputForType('enableDnsSupport', selectedBlock.properties.enableDnsSupport)}
-            {renderInputForType('enableDnsHostnames', selectedBlock.properties.enableDnsHostnames)}
-          </>
-        );
-      case 'subnet':
-        return (
-          <>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
-            {renderInputForType('availabilityZone', selectedBlock.properties.availabilityZone)}
-          </>
-        );
-      case 'ec2':
-        return (
-          <>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            {renderInputForType('instanceType', selectedBlock.properties.instanceType)}
-            {renderInputForType('ami', selectedBlock.properties.ami)}
-          </>
-        );
-      case 'security-group':
-        return (
-          <>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            <div className="mb-2 mt-4">
-              <h4 className="font-medium">보안 규칙</h4>
-              {selectedBlock.properties.securityRules?.map((rule, index) => (
-                <div key={index} className="mt-2 p-2 border border-gray-600 rounded">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-sm mb-1">타입</label>
-                      <select
-                        value={rule.type}
-                        onChange={(e) => {
-                          const updatedRules = [...selectedBlock.properties.securityRules!];
-                          updatedRules[index] = { ...rule, type: e.target.value as 'ingress' | 'egress' };
-                          handleInputChange('securityRules', updatedRules);
-                        }}
-                        onKeyDown={handleInputKeyDown}
-                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                      >
-                        <option value="ingress">Ingress</option>
-                        <option value="egress">Egress</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-1">프로토콜</label>
-                      <select
-                        value={rule.protocol}
-                        onChange={(e) => {
-                          const updatedRules = [...selectedBlock.properties.securityRules!];
-                          updatedRules[index] = { ...rule, protocol: e.target.value };
-                          handleInputChange('securityRules', updatedRules);
-                        }}
-                        onKeyDown={handleInputKeyDown}
-                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                      >
-                        <option value="tcp">TCP</option>
-                        <option value="udp">UDP</option>
-                        <option value="icmp">ICMP</option>
-                        <option value="-1">All</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <label className="block text-sm mb-1">From Port</label>
-                      <input
-                        type="number"
-                        value={rule.fromPort}
-                        onChange={(e) => {
-                          const updatedRules = [...selectedBlock.properties.securityRules!];
-                          updatedRules[index] = { ...rule, fromPort: parseInt(e.target.value) };
-                          handleInputChange('securityRules', updatedRules);
-                        }}
-                        onKeyDown={handleInputKeyDown}
-                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-1">To Port</label>
-                      <input
-                        type="number"
-                        value={rule.toPort}
-                        onChange={(e) => {
-                          const updatedRules = [...selectedBlock.properties.securityRules!];
-                          updatedRules[index] = { ...rule, toPort: parseInt(e.target.value) };
-                          handleInputChange('securityRules', updatedRules);
-                        }}
-                        onKeyDown={handleInputKeyDown}
-                        className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <label className="block text-sm mb-1">CIDR Blocks</label>
-                    <input
-                      type="text"
-                      value={rule.cidrBlocks.join(', ')}
+    const blockType = selectedBlock.type;
+
+    // VPC/Virtual Network
+    if (blockType.includes('vpc') || blockType.includes('virtual-network')) {
+      return (
+        <>
+          {renderInputForType('name', selectedBlock.properties.name)}
+          {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
+          {renderInputForType('enableDnsSupport', selectedBlock.properties.enableDnsSupport)}
+          {renderInputForType('enableDnsHostnames', selectedBlock.properties.enableDnsHostnames)}
+        </>
+      );
+    }
+
+    // Subnet
+    if (blockType.includes('subnet')) {
+      return (
+        <>
+          {renderInputForType('name', selectedBlock.properties.name)}
+          {renderInputForType('cidrBlock', selectedBlock.properties.cidrBlock)}
+          {renderInputForType('availabilityZone', selectedBlock.properties.availabilityZone)}
+        </>
+      );
+    }
+
+    // Compute (EC2/VM/Compute Engine)
+    if (blockType.includes('ec2') || blockType.includes('compute-engine') || blockType.includes('virtual-machine')) {
+      return (
+        <>
+          {renderInputForType('name', selectedBlock.properties.name)}
+          {renderInputForType('instanceType', selectedBlock.properties.instanceType)}
+          {renderInputForType('ami', selectedBlock.properties.ami)}
+        </>
+      );
+    }
+
+    // Security Group/Firewall/NSG
+    if (blockType.includes('security-group') || blockType.includes('firewall') || blockType.includes('nsg')) {
+      return (
+        <>
+          {renderInputForType('name', selectedBlock.properties.name)}
+          <div className="mb-2 mt-4">
+            <h4 className="font-medium">보안 규칙</h4>
+            {selectedBlock.properties.securityRules?.map((rule, index) => (
+              <div key={index} className="mt-2 p-2 border border-gray-600 rounded">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm mb-1">타입</label>
+                    <select
+                      value={rule.type}
                       onChange={(e) => {
                         const updatedRules = [...selectedBlock.properties.securityRules!];
-                        updatedRules[index] = {
-                          ...rule,
-                          cidrBlocks: e.target.value.split(',').map(s => s.trim())
-                        };
+                        updatedRules[index] = { ...rule, type: e.target.value as 'ingress' | 'egress' };
                         handleInputChange('securityRules', updatedRules);
                       }}
                       onKeyDown={handleInputKeyDown}
-                      placeholder="0.0.0.0/0"
+                      className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                    >
+                      <option value="ingress">Ingress</option>
+                      <option value="egress">Egress</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">프로토콜</label>
+                    <select
+                      value={rule.protocol}
+                      onChange={(e) => {
+                        const updatedRules = [...selectedBlock.properties.securityRules!];
+                        updatedRules[index] = { ...rule, protocol: e.target.value };
+                        handleInputChange('securityRules', updatedRules);
+                      }}
+                      onKeyDown={handleInputKeyDown}
+                      className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                    >
+                      <option value="tcp">TCP</option>
+                      <option value="udp">UDP</option>
+                      <option value="icmp">ICMP</option>
+                      <option value="-1">All</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label className="block text-sm mb-1">From Port</label>
+                    <input
+                      type="number"
+                      value={rule.fromPort}
+                      onChange={(e) => {
+                        const updatedRules = [...selectedBlock.properties.securityRules!];
+                        updatedRules[index] = { ...rule, fromPort: parseInt(e.target.value) };
+                        handleInputChange('securityRules', updatedRules);
+                      }}
+                      onKeyDown={handleInputKeyDown}
+                      className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">To Port</label>
+                    <input
+                      type="number"
+                      value={rule.toPort}
+                      onChange={(e) => {
+                        const updatedRules = [...selectedBlock.properties.securityRules!];
+                        updatedRules[index] = { ...rule, toPort: parseInt(e.target.value) };
+                        handleInputChange('securityRules', updatedRules);
+                      }}
+                      onKeyDown={handleInputKeyDown}
                       className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
                     />
                   </div>
                 </div>
-              ))}
-              <button
-                onClick={() => {
-                  const newRule = {
-                    type: 'ingress' as const,
-                    protocol: 'tcp',
-                    fromPort: 80,
-                    toPort: 80,
-                    cidrBlocks: ['0.0.0.0/0']
-                  };
-                  const updatedRules = [...(selectedBlock.properties.securityRules || []), newRule];
-                  handleInputChange('securityRules', updatedRules);
-                }}
-                className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-              >
-                규칙 추가
-              </button>
-            </div>
-          </>
-        );
-      case 'load-balancer':
-        return (
-          <>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            <div className="mb-2">
-              <label htmlFor="loadBalancerType" className="block text-sm mb-1">로드 밸런서 타입</label>
-              <select
-                id="loadBalancerType"
-                value={selectedBlock.properties.loadBalancerType}
-                onChange={(e) => handleInputChange('loadBalancerType', e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-              >
-                <option value="application">Application Load Balancer</option>
-                <option value="network">Network Load Balancer</option>
-              </select>
-            </div>
-          </>
-        );
-      case 'volume':
-        return (
-          <>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            {renderInputForType('volumeSize', selectedBlock.properties.volumeSize)}
-            <div className="mb-2">
-              <label htmlFor="volumeType" className="block text-sm mb-1">볼륨 타입</label>
-              <select
-                id="volumeType"
-                value={selectedBlock.properties.volumeType}
-                onChange={(e) => handleInputChange('volumeType', e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
-              >
-                <option value="gp2">gp2</option>
-                <option value="gp3">gp3</option>
-                <option value="io1">io1</option>
-                <option value="st1">st1</option>
-                <option value="sc1">sc1</option>
-                <option value="standard">standard</option>
-              </select>
-            </div>
-          </>
-        );
-      default:
-        return (
-          <div>
-            {renderInputForType('name', selectedBlock.properties.name)}
-            {renderInputForType('description', selectedBlock.properties.description)}
+                <div className="mt-2">
+                  <label className="block text-sm mb-1">CIDR Blocks</label>
+                  <input
+                    type="text"
+                    value={rule.cidrBlocks.join(', ')}
+                    onChange={(e) => {
+                      const updatedRules = [...selectedBlock.properties.securityRules!];
+                      updatedRules[index] = {
+                        ...rule,
+                        cidrBlocks: e.target.value.split(',').map(s => s.trim())
+                      };
+                      handleInputChange('securityRules', updatedRules);
+                    }}
+                    onKeyDown={handleInputKeyDown}
+                    placeholder="0.0.0.0/0"
+                    className="w-full px-2 py-1 bg-gray-700 rounded border border-gray-600 text-white text-sm"
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => {
+                const newRule = {
+                  type: 'ingress' as const,
+                  protocol: 'tcp',
+                  fromPort: 80,
+                  toPort: 80,
+                  cidrBlocks: ['0.0.0.0/0']
+                };
+                const updatedRules = [...(selectedBlock.properties.securityRules || []), newRule];
+                handleInputChange('securityRules', updatedRules);
+              }}
+              className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              규칙 추가
+            </button>
           </div>
-        );
+        </>
+      );
     }
+
+    // Load Balancer
+    if (blockType.includes('load-balancer')) {
+      return (
+        <>
+          {renderInputForType('name', selectedBlock.properties.name)}
+          <div className="mb-2">
+            <label htmlFor="loadBalancerType" className="block text-sm mb-1">로드 밸런서 타입</label>
+            <select
+              id="loadBalancerType"
+              value={selectedBlock.properties.loadBalancerType}
+              onChange={(e) => handleInputChange('loadBalancerType', e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+            >
+              <option value="application">Application Load Balancer</option>
+              <option value="network">Network Load Balancer</option>
+            </select>
+          </div>
+        </>
+      );
+    }
+
+    // Volume/Disk/EBS
+    if (blockType.includes('volume') || blockType.includes('ebs') || blockType.includes('disk')) {
+      return (
+        <>
+          {renderInputForType('name', selectedBlock.properties.name)}
+          {renderInputForType('volumeSize', selectedBlock.properties.volumeSize)}
+          <div className="mb-2">
+            <label htmlFor="volumeType" className="block text-sm mb-1">볼륨 타입 (AWS 예시)</label>
+            <select
+              id="volumeType"
+              value={selectedBlock.properties.volumeType}
+              onChange={(e) => handleInputChange('volumeType', e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              className="w-full px-3 py-1 bg-gray-700 rounded border border-gray-600 text-white"
+            >
+              <option value="gp2">gp2 (AWS)</option>
+              <option value="gp3">gp3 (AWS)</option>
+              <option value="io1">io1 (AWS)</option>
+              <option value="st1">st1 (AWS)</option>
+              <option value="sc1">sc1 (AWS)</option>
+              <option value="standard">standard</option>
+            </select>
+          </div>
+        </>
+      );
+    }
+
+    // Default
+    return (
+      <div>
+        {renderInputForType('name', selectedBlock.properties.name)}
+        {renderInputForType('description', selectedBlock.properties.description)}
+      </div>
+    );
   };
 
   // 프리셋 크기 적용 (높이는 현재 높이 유지)
@@ -458,9 +476,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
     handleResize(selectedBlock.id, presets[preset]);
   };
 
-  // foundation 타입(vpc, subnet)의 경우 크기 조절 UI 표시
+  // foundation 타입(vpc, subnet, virtual-network)의 경우 크기 조절 UI 표시
   const renderResizeControls = () => {
-    if (['vpc', 'subnet'].includes(selectedBlock.type) && selectedBlock.size) {
+    const blockType = selectedBlock.type;
+    const isFoundation = blockType.includes('vpc') || blockType.includes('virtual-network') || blockType.includes('subnet');
+
+    if (isFoundation && selectedBlock.size) {
       return (
         <div className="border-t border-gray-600 pt-4 mt-4">
           <h3 className="font-medium mb-3">크기 조절</h3>

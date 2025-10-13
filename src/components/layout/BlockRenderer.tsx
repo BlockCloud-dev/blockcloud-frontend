@@ -43,17 +43,22 @@ interface BlockRendererProps {
   getBlockHeight?: (blockType: string, size?: [number, number, number]) => number;
 }
 
-// 블록 타입별 색상 매핑
+// 블록 타입별 색상 매핑 (벤더 무관)
 const getBlockColor = (blockType: string): string => {
-  const colorMap: Record<string, string> = {
-    vpc: "#3b82f6", // blue
-    subnet: "#10b981", // green
-    ec2: "#f97316", // orange
-    volume: "#8b5cf6", // purple
-    "security-group": "#ef4444", // red
-    "load-balancer": "#eab308", // yellow
-  };
-  return colorMap[blockType] || "#6b7280"; // default gray
+  // VPC/Virtual Network
+  if (blockType.includes('vpc') || blockType.includes('virtual-network')) return "#3b82f6"; // blue
+  // Subnet
+  if (blockType.includes('subnet')) return "#10b981"; // green
+  // Compute (EC2/VM/Compute Engine)
+  if (blockType.includes('ec2') || blockType.includes('compute-engine') || blockType.includes('virtual-machine')) return "#f97316"; // orange
+  // Volume/Disk/EBS
+  if (blockType.includes('volume') || blockType.includes('ebs') || blockType.includes('disk')) return "#8b5cf6"; // purple
+  // Security Group/Firewall/NSG
+  if (blockType.includes('security-group') || blockType.includes('firewall') || blockType.includes('nsg')) return "#ef4444"; // red
+  // Load Balancer
+  if (blockType.includes('load-balancer')) return "#eab308"; // yellow
+
+  return "#6b7280"; // default gray
 };
 
 export function BlockRenderer({

@@ -32,11 +32,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const openCreateModal = () => setIsModalOpen(true);
   const closeCreateModal = () => setIsModalOpen(false);
 
-  const handleCreateSubmit = async (name: string, description: string): Promise<void> => {
+  const handleCreateSubmit = async (name: string, description: string, provider?: any): Promise<void> => {
     try {
-      const newProject = await projectService.createProject(name, description);
+      const newProject = await projectService.createProject(name, description, provider);
       // 성공 후 처리 로직
       console.log("프로젝트 생성 성공:", newProject);
+      console.log("선택된 프로바이더:", provider);
       closeCreateModal();
     } catch (error) {
       console.error("프로젝트 생성 실패:", error);
@@ -91,11 +92,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className={`inline-flex items-center px-4 py-2 font-medium rounded-lg transition ${
-                isLoggingOut
+              className={`inline-flex items-center px-4 py-2 font-medium rounded-lg transition ${isLoggingOut
                   ? "bg-gray-100 text-gray-500 cursor-not-allowed"
                   : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
+                }`}
             >
               {isLoggingOut ? "로그아웃 중…" : "로그아웃"}
             </button>

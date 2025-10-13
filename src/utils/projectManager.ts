@@ -324,7 +324,7 @@ export const createProjectTemplate = (
         blocks: [
           {
             id: "vpc-template",
-            type: "vpc",
+            type: "aws-vpc",
             name: "Main VPC",
             position: new Vector3(0, 0.1, 0),
             timestamp: Date.now(),
@@ -338,7 +338,7 @@ export const createProjectTemplate = (
           },
           {
             id: "subnet-web",
-            type: "subnet",
+            type: "aws-subnet",
             name: "Web Subnet",
             position: new Vector3(-2, 0.25, -2),
             timestamp: Date.now(),
@@ -351,7 +351,7 @@ export const createProjectTemplate = (
           },
           {
             id: "subnet-app",
-            type: "subnet",
+            type: "aws-subnet",
             name: "App Subnet",
             position: new Vector3(0, 0.25, 0),
             timestamp: Date.now(),
@@ -364,7 +364,7 @@ export const createProjectTemplate = (
           },
           {
             id: "subnet-db",
-            type: "subnet",
+            type: "aws-subnet",
             name: "DB Subnet",
             position: new Vector3(2, 0.25, 2),
             timestamp: Date.now(),
@@ -395,7 +395,7 @@ export const createProjectTemplate = (
         blocks: [
           {
             id: "vpc-micro",
-            type: "vpc",
+            type: "aws-vpc",
             name: "Microservices VPC",
             position: new Vector3(0, 0.1, 0),
             timestamp: Date.now(),
@@ -409,7 +409,7 @@ export const createProjectTemplate = (
           },
           {
             id: "lb-main",
-            type: "load-balancer",
+            type: "aws-load-balancer",
             name: "Main Load Balancer",
             position: new Vector3(0, 1.1, -2),
             timestamp: Date.now(),
@@ -438,7 +438,7 @@ export const createProjectTemplate = (
         blocks: [
           {
             id: "vpc-basic",
-            type: "vpc",
+            type: "aws-vpc",
             name: "Basic VPC",
             position: new Vector3(0, 0.1, 0),
             timestamp: Date.now(),

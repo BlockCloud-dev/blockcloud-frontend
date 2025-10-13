@@ -72,28 +72,48 @@ export const ConnectionsPanel: React.FC<ConnectionsPanelProps> = ({ }) => {
 
   const getConnectionIcon = (type: string) => {
     switch (type) {
+      // 벤더 무관 타입
+      case 'compute-security-group': return '🛡️';
+      case 'subnet-compute': return '🌐';
+      case 'compute-volume': return '💾';
+      case 'load-balancer-compute': return '⚖️';
+      case 'load-balancer-security-group': return '🛡️⚖️';
+      case 'subnet-load-balancer': return '🌐⚖️';
+      case 'subnet-security-group': return '🛡️🌐';
+      case 'vpc-subnet': return '🏢';
+      case 'subnet-volume': return '💾';
+      case 'volume-compute-boot': return '🥾';
+      case 'volume-compute-block': return '💾';
+      // 레거시 AWS 타입 (호환성)
       case 'ec2-security-group': return '🛡️';
-      case 'ec2-subnet': return '🌐';
+      case 'subnet-ec2': return '🌐';
       case 'ec2-volume': return '💾';
       case 'load-balancer-ec2': return '⚖️';
-      case 'load-balancer-security-group': return '🛡️⚖️';
-      case 'load-balancer-subnet': return '🌐⚖️';
-      case 'security-group-subnet': return '🛡️🌐';
-      case 'subnet-vpc': return '🏢';
+      case 'subnet-ebs': return '💾';
       default: return '🔗';
     }
   };
 
   const getConnectionColor = (type: string) => {
     switch (type) {
+      // 벤더 무관 타입
+      case 'compute-security-group': return 'from-red-500 to-red-600';
+      case 'subnet-compute': return 'from-green-500 to-green-600';
+      case 'compute-volume': return 'from-purple-500 to-purple-600';
+      case 'load-balancer-compute': return 'from-orange-500 to-orange-600';
+      case 'load-balancer-security-group': return 'from-pink-500 to-pink-600';
+      case 'subnet-load-balancer': return 'from-cyan-500 to-cyan-600';
+      case 'subnet-security-group': return 'from-orange-500 to-orange-600';
+      case 'vpc-subnet': return 'from-blue-500 to-blue-600';
+      case 'subnet-volume': return 'from-purple-500 to-purple-600';
+      case 'volume-compute-boot': return 'from-yellow-500 to-yellow-600';
+      case 'volume-compute-block': return 'from-purple-500 to-purple-600';
+      // 레거시 AWS 타입 (호환성)
       case 'ec2-security-group': return 'from-red-500 to-red-600';
-      case 'ec2-subnet': return 'from-green-500 to-green-600';
+      case 'subnet-ec2': return 'from-green-500 to-green-600';
       case 'ec2-volume': return 'from-purple-500 to-purple-600';
       case 'load-balancer-ec2': return 'from-orange-500 to-orange-600';
-      case 'load-balancer-security-group': return 'from-pink-500 to-pink-600';
-      case 'load-balancer-subnet': return 'from-cyan-500 to-cyan-600';
-      case 'security-group-subnet': return 'from-orange-500 to-orange-600';
-      case 'subnet-vpc': return 'from-blue-500 to-blue-600';
+      case 'subnet-ebs': return 'from-purple-500 to-purple-600';
       default: return 'from-gray-500 to-gray-600';
     }
   };
