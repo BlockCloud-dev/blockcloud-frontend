@@ -67,19 +67,27 @@ const DeployStatusPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Terraform 배포 대시보드</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {projects.map((project) => (
-          <ProjectDeploymentCard
-            key={project.id}
-            projectId={project.id}
-            projectName={project.name}
-            lastDeletedDeploymentId={project.lastDeletedDeploymentId} // ✅ 전달
-            onDeploymentClick={handleDeploymentClick}
-            onDeleteDeployment={handleDeleteDeployment}
-          />
-        ))}
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold mb-8 text-gray-800">Terraform 배포 대시보드</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {projects.length === 0 ? (
+          <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-gray-200">
+            <div className="text-5xl mb-4">📦</div>
+            <h3 className="text-xl font-medium text-gray-800 mb-2">배포된 프로젝트가 없습니다</h3>
+            <p className="text-gray-600">프로젝트를 배포하면 여기에 표시됩니다</p>
+          </div>
+        ) : (
+          projects.map((project) => (
+            <ProjectDeploymentCard
+              key={project.id}
+              projectId={project.id}
+              projectName={project.name}
+              lastDeletedDeploymentId={project.lastDeletedDeploymentId}
+              onDeploymentClick={handleDeploymentClick}
+              onDeleteDeployment={handleDeleteDeployment}
+            />
+          ))
+        )}
       </div>
 
       {showModal && selectedProjectId && selectedDeploymentId !== null && (

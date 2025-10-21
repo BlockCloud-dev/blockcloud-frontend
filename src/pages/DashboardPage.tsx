@@ -48,7 +48,7 @@ const DashboardPage: React.FC = () => {
       console.error("❌ 프로젝트 목록 로딩 실패:", error);
       alert(
         "프로젝트 목록을 불러오지 못했습니다: " +
-          (error?.message ?? "unknown error")
+        (error?.message ?? "unknown error")
       );
     } finally {
       setIsLoading(false);
@@ -125,37 +125,60 @@ const DashboardPage: React.FC = () => {
     <div className="flex min-h-screen bg-gray-50">
       <div className="flex-1 flex flex-col">
         <main className="flex-1 overflow-y-auto px-6 py-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl font-bold text-gray-800 mb-6">
             Recent Projects
           </h2>
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
-            <div className="flex items-center space-x-3">
-              <input
-                type="text"
-                placeholder="프로젝트 이름 검색"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <select
-                value={sortOrder}
-                onChange={(e) =>
-                  setSortOrder(e.target.value as "newest" | "oldest")
-                }
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="newest">최신 순</option>
-                <option value="oldest">오래된 순</option>
-              </select>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 space-y-4 sm:space-y-0">
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <svg
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="프로젝트 이름 검색"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+              </div>
+              <div className="relative">
+                <select
+                  value={sortOrder}
+                  onChange={(e) =>
+                    setSortOrder(e.target.value as "newest" | "oldest")
+                  }
+                  className="pl-3 pr-8 py-2 border border-gray-300 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium appearance-none"
+                >
+                  <option value="newest" className="text-gray-800">최신 순</option>
+                  <option value="oldest" className="text-gray-800">오래된 순</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             <button
               onClick={handleOpenModal}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+              className="inline-flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-all"
             >
               <Plus className="w-5 h-5 mr-2" />
-              New Project
+              <span className="text-base">New Project</span>
             </button>
           </div>
 
@@ -165,19 +188,20 @@ const DashboardPage: React.FC = () => {
               <p className="mt-4 text-gray-600">Loading projects…</p>
             </div>
           ) : sorted.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-400 text-6xl mb-4">📁</div>
-              <h3 className="text-xl font-medium text-gray-900 mb-2">
+            <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-200 shadow-sm">
+              <div className="text-gray-400 text-6xl mb-6">📁</div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">
                 프로젝트가 없습니다
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-700 mb-8 text-lg font-medium">
                 첫 번째 프로젝트를 만들어보세요
               </p>
               <button
                 onClick={handleOpenModal}
-                className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm"
               >
-                <Plus className="w-5 h-5 mr-2" />새 프로젝트 만들기
+                <Plus className="w-5 h-5 mr-2" />
+                <span className="text-base">새 프로젝트 만들기</span>
               </button>
             </div>
           ) : (

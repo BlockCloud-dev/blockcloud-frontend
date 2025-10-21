@@ -58,27 +58,29 @@ const CreateProjectModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg p-6 w-96">
-        <h2 className="text-lg font-semibold mb-4">새 프로젝트 만들기</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-800">새 프로젝트 만들기</h2>
+        <label className="block text-sm font-medium text-gray-700 mb-1">프로젝트 이름</label>
         <input
           type="text"
           placeholder="프로젝트 이름"
-          className="w-full border p-2 rounded mb-2"
+          className="w-full border p-2 rounded mb-4 text-gray-800"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        <label className="block text-sm font-medium text-gray-700 mb-1">프로젝트 설명</label>
         <textarea
           placeholder="프로젝트 설명"
-          className="w-full border p-2 rounded mb-4"
+          className="w-full border p-2 rounded mb-4 text-gray-800"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
 
         {/* 클라우드 프로바이더 선택 */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-bold text-gray-800 mb-2">
             클라우드 프로바이더 선택
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex justify-between gap-2">
             {Object.entries(PROVIDER_INFO).map(([key, info]) => {
               const providerType = key as CloudProviderType;
               const isSelected = selectedProvider === providerType;
@@ -91,18 +93,18 @@ const CreateProjectModal: React.FC<Props> = ({
                   disabled={!isImplemented}
                   onClick={() => isImplemented && setSelectedProvider(providerType)}
                   className={`
-                    relative p-3 border-2 rounded-lg text-center transition-all
+                    relative p-3 border-2 rounded-lg text-center transition-all flex-1
                     ${isSelected && isImplemented
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-md'
                       : isImplemented
-                        ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
+                        ? 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-800'
+                        : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
                     }
                   `}
                 >
-                  <div className="flex flex-col items-center space-y-1">
-                    <span className="text-2xl">{info.icon}</span>
-                    <span className="text-xs font-medium">{info.shortName}</span>
+                  <div className="flex flex-col items-center space-y-2">
+                    <span className="text-3xl">{info.icon}</span>
+                    <span className="text-sm font-semibold">{info.shortName}</span>
                   </div>
                   {!isImplemented && (
                     <div className="absolute top-1 right-1">
@@ -111,8 +113,8 @@ const CreateProjectModal: React.FC<Props> = ({
                   )}
                   {isSelected && (
                     <div className="absolute -top-1 -right-1">
-                      <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                        <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -122,21 +124,24 @@ const CreateProjectModal: React.FC<Props> = ({
               );
             })}
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            선택한 프로바이더: <span className="font-medium" style={{ color: PROVIDER_INFO[selectedProvider].color }}>
+          <p className="text-sm text-gray-700 mt-3 font-medium">
+            선택한 프로바이더: <span className="font-bold" style={{ color: PROVIDER_INFO[selectedProvider].color }}>
               {PROVIDER_INFO[selectedProvider].name}
             </span>
           </p>
         </div>
-        {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-        <div className="flex justify-end space-x-2">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">
+        {error && <p className="text-red-500 text-sm mb-2 font-medium">{error}</p>}
+        <div className="flex justify-end space-x-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-all"
+          >
             취소
           </button>
           <button
             onClick={handleSubmit}
             disabled={isCurrentlyLoading}
-            className="px-4 py-2 rounded bg-blue-600 text-white"
+            className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium transition-all disabled:opacity-70"
           >
             {isCurrentlyLoading ? "생성 중..." : "생성"}
           </button>

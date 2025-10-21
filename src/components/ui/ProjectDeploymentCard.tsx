@@ -104,27 +104,27 @@ const ProjectDeploymentCard: React.FC<Props> = ({
   const statusMeta = status ? statusStyleMap[status] : null;
 
   return (
-    <div className="group transition-all duration-200 rounded-xl shadow-md hover:shadow-lg bg-white p-6 hover:-translate-y-0.5">
+    <div className="group transition-all duration-200 rounded-xl shadow-md hover:shadow-lg bg-white p-6 hover:-translate-y-1 border border-gray-100">
       {/* 상단: 프로젝트명 + 아이콘 + 삭제버튼 */}
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xl font-semibold text-gray-900">{projectName}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-gray-800">{projectName}</h2>
         <div className="flex items-center gap-2">
           {latest && !isDeleted && (
             <button
               onClick={() => onDeleteDeployment(projectId, latest.deploymentId)}
-              className="p-1 rounded-full hover:bg-red-100 text-red-500 hover:text-red-700 transition"
+              className="p-1.5 rounded-full hover:bg-red-100 text-red-500 hover:text-red-700 transition border border-gray-100 hover:border-red-200"
               title="배포 삭제"
             >
               <Trash2 className="w-5 h-5" />
             </button>
           )}
-          <ChevronRight className="w-7 h-7 text-indigo-500 group-hover:scale-110 transition-transform duration-200" />
+          <ChevronRight className="w-6 h-6 text-blue-500 group-hover:scale-110 transition-transform duration-200" />
         </div>
       </div>
 
       {/* 카드 본문 */}
       <div
-        className="cursor-pointer"
+        className={`cursor-pointer p-3 rounded-lg ${!isDeleted && latest ? 'hover:bg-gray-50' : ''}`}
         onClick={() =>
           latest &&
           !isDeleted &&
@@ -132,21 +132,30 @@ const ProjectDeploymentCard: React.FC<Props> = ({
         }
       >
         {loading ? (
-          <p className="text-sm text-gray-400">배포 이력을 불러오는 중...</p>
+          <div className="flex items-center space-x-2 text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <p className="text-sm font-medium">배포 이력을 불러오는 중...</p>
+          </div>
         ) : !latest ? (
-          <p className="text-sm text-gray-400">배포 이력이 없습니다.</p>
+          <p className="text-sm font-medium text-gray-500 py-2">배포 이력이 없습니다.</p>
         ) : (
-          <div className="space-y-2 text-sm">
+          <div className="space-y-3 text-sm">
             <div
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusMeta?.bgClass} ${statusMeta?.colorClass}`}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusMeta?.bgClass} ${statusMeta?.colorClass}`}
             >
               {statusMeta?.icon}
               {statusMeta?.label}
             </div>
 
             {!isDeleted && (
-              <div className="text-gray-500 text-xs">
-                시작 시각: {new Date(latest.startedAt).toLocaleString()}
+              <div className="text-gray-700 font-medium">
+                시작 시각: {new Date(latest.startedAt).toLocaleString('ko-KR')}
+              </div>
+            )}
+
+            {!isDeleted && latest.message && (
+              <div className="text-gray-600 text-sm line-clamp-2 mt-1">
+                {latest.message}
               </div>
             )}
           </div>

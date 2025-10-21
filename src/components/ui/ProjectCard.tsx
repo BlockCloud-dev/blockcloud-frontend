@@ -78,14 +78,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         className={`h-40 bg-gradient-to-br ${gradient} flex items-center justify-center`}
       >
         {previewText && (
-          <span className="text-lg font-medium text-gray-800 text-center px-2">
+          <span className="text-lg font-semibold text-gray-800 text-center px-4 py-2 bg-white/70 backdrop-blur-sm rounded-md shadow-sm">
             {previewText}
           </span>
         )}
       </div>
       <div className="bg-white p-4">
-        <h3 className="text-lg font-semibold text-gray-900 truncate">{name}</h3>
-        <p className="text-sm text-gray-500 mt-1">
+        <h3 className="text-xl font-bold text-gray-800 truncate">{name}</h3>
+        <p className="text-sm font-medium text-gray-600 mt-2">
           {getRelativeTime(updatedAt)}
         </p>
       </div>
