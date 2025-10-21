@@ -1,6 +1,6 @@
 import { BaseCloudProvider } from '../../core/abstractions/CloudProvider';
 import type { CloudBlock, StackingRule, ConnectionRule, ProviderFeature } from '../../core/types/common';
-import { CloudProviderType } from '../../core/types/common';
+// CloudProviderType 현재 사용하지 않음
 import type { Connection } from '../../types/blocks';
 
 import { AZURE_BLOCKS, AzureBlockUtils } from './blocks/azureBlocks';

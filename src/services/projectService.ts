@@ -1,10 +1,11 @@
 // src/services/projectService.ts
 import { useProjectStore } from "../stores/projectStore";
+import { CloudProviderType } from "../providers";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
-export async function createProject(name: string, description: string) {
+export async function createProject(name: string, description: string, provider: CloudProviderType = CloudProviderType.AWS) {
   const accessToken = localStorage.getItem("accessToken"); // ✅ 토큰 가져오기
 
   const response = await fetch(`${API_BASE_URL}/api/projects`, {
@@ -13,7 +14,7 @@ export async function createProject(name: string, description: string) {
       "Content-Type": "application/json",
       ...(accessToken && { Authorization: `Bearer ${accessToken}` }), // ✅ 토큰 헤더 추가
     },
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ name, description, provider }),
     credentials: "include", // refreshToken 쿠키도 함께 보냄
   });
 

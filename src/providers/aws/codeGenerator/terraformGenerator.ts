@@ -47,7 +47,7 @@ export class AWSTerraformGenerator {
         // EC2 인스턴스 생성
         const ec2s = blocks.filter((block) => block.type === "ec2");
         ec2s.forEach((ec2) => {
-            code += this.generateEC2Code(ec2, subnets, securityGroups, volumes, connections);
+            code += this.generateEC2Code(ec2, subnets, securityGroups, volumes);
         });
 
         // Load Balancers 생성
@@ -177,7 +177,7 @@ resource "aws_security_group" "${this.sanitizeResourceName(sg.id)}" {
 
         // 보안 규칙 추가
         const rules = sg.properties.securityRules || [];
-        rules.forEach((rule: any, index: number) => {
+        rules.forEach((rule: any) => { // index 사용하지 않음
             if (rule.type === 'ingress') {
                 code += `  ingress {
     from_port   = ${rule.fromPort}
@@ -224,8 +224,8 @@ resource "aws_ebs_volume" "${this.sanitizeResourceName(volume.id)}" {
         ec2: CloudBlock,
         subnets: CloudBlock[],
         securityGroups: CloudBlock[],
-        volumes: CloudBlock[],
-        connections: Connection[]
+        volumes: CloudBlock[]
+        // connections는 사용하지 않음
     ): string {
         const instanceType = ec2.properties.instanceType || "t3.micro";
         const ami = ec2.properties.ami || "ami-0c6e5afdd23291f73";
@@ -261,7 +261,7 @@ resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {
 `;
 
         // EBS Volume 연결
-        volumes.forEach((volume, index) => {
+        volumes.forEach((volume) => { // index 사용하지 않음
             code += `# EBS Volume Attachment: ${volume.name} → ${ec2.name}
 resource "aws_volume_attachment" "${this.sanitizeResourceName(ec2.id)}_${this.sanitizeResourceName(volume.id)}" {
   device_name = "/dev/sdf"

@@ -47,19 +47,19 @@ export class GCPTerraformGenerator {
         // Compute Engine 인스턴스 생성
         const computeEngines = blocks.filter((block) => block.type === "compute-engine");
         computeEngines.forEach((vm) => {
-            code += this.generateComputeEngineCode(vm, subnets, firewallRules, persistentDisks, connections);
+            code += this.generateComputeEngineCode(vm, subnets, persistentDisks);
         });
 
         // Load Balancers 생성
         const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
         loadBalancers.forEach((lb) => {
-            code += this.generateLoadBalancerCode(lb, subnets);
+            code += this.generateLoadBalancerCode(lb);
         });
 
         // Cloud SQL 생성
         const cloudSQLs = blocks.filter((block) => block.type === "cloud-sql");
         cloudSQLs.forEach((sql) => {
-            code += this.generateCloudSQLCode(sql, vpcNetworks);
+            code += this.generateCloudSQLCode(sql);
         });
 
         // Cloud Storage 생성
@@ -71,7 +71,7 @@ export class GCPTerraformGenerator {
         // Cloud Functions 생성
         const cloudFunctions = blocks.filter((block) => block.type === "cloud-function");
         cloudFunctions.forEach((fn) => {
-            code += this.generateCloudFunctionCode(fn, vpcNetworks);
+            code += this.generateCloudFunctionCode(fn);
         });
 
         return code;
@@ -264,9 +264,9 @@ resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
     private static generateComputeEngineCode(
         vm: CloudBlock,
         subnets: CloudBlock[],
-        firewallRules: CloudBlock[],
-        persistentDisks: CloudBlock[],
-        connections: Connection[]
+        // firewallRules: CloudBlock[], // 사용하지 않음
+        persistentDisks: CloudBlock[]
+        // connections: Connection[] // 사용하지 않음
     ): string {
         const name = vm.properties.name || vm.name;
         const machineType = vm.properties.machineType || "e2-micro";
@@ -350,7 +350,7 @@ resource "google_compute_attached_disk" "${this.sanitizeResourceName(vm.id)}_${t
         return code;
     }
 
-    private static generateLoadBalancerCode(lb: CloudBlock, subnets: CloudBlock[]): string {
+    private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
         const name = lb.properties.name || lb.name;
         const loadBalancingScheme = lb.properties.loadBalancingScheme || "EXTERNAL";
         const protocol = lb.properties.protocol || "HTTP";
@@ -403,7 +403,7 @@ resource "google_compute_global_forwarding_rule" "${this.sanitizeResourceName(lb
 `;
     }
 
-    private static generateCloudSQLCode(sql: CloudBlock, vpcNetworks: CloudBlock[]): string {
+    private static generateCloudSQLCode(sql: CloudBlock): string { // vpcNetworks 사용하지 않음
         const name = sql.properties.name || sql.name;
         const databaseVersion = sql.properties.databaseVersion || "MYSQL_8_0";
         const tier = sql.properties.tier || "db-f1-micro";
@@ -502,7 +502,7 @@ resource "random_id" "bucket_suffix" {
 `;
     }
 
-    private static generateCloudFunctionCode(fn: CloudBlock, vpcNetworks: CloudBlock[]): string {
+    private static generateCloudFunctionCode(fn: CloudBlock): string { // vpcNetworks 사용하지 않음
         const name = fn.properties.name || fn.name;
         const runtime = fn.properties.runtime || "python39";
         const entryPoint = fn.properties.entryPoint || "main";

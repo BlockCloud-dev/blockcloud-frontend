@@ -1,6 +1,6 @@
 import { BaseCloudProvider } from '../../core/abstractions/CloudProvider';
-import type { CloudBlock, StackingRule, ConnectionRule, ProviderFeature, BlockCategory } from '../../core/types/common';
-import { CloudProviderType } from '../../core/types/common';
+import type { CloudBlock, StackingRule, ConnectionRule, ProviderFeature } from '../../core/types/common';
+// CloudProviderType는 현재 이 파일에서 사용하지 않지만, 다른 파일에서 import할 수 있음
 import type { Connection } from '../../types/blocks';
 
 import { AWS_BLOCKS, AWSBlockUtils } from './blocks/awsBlocks';

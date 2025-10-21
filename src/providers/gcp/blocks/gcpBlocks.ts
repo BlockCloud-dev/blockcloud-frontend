@@ -5,8 +5,8 @@ import {
     Shield,
     Route,
     Building2,
-    Database,
-    Zap,
+    // Database,  // 사용하지 않음
+    // Zap,      // 사용하지 않음
 } from "lucide-react";
 import { type CloudBlock, BlockCategory } from '../../../core/types/common';
 import { CloudProviderType } from '../../../core/types/common';

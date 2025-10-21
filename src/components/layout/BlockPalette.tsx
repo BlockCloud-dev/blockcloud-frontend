@@ -1,12 +1,6 @@
 import React from "react";
 import {
-  Server,
   Search,
-  Cloud,
-  Archive,
-  Shield,
-  Route,
-  Building2,
   Layers,
 } from "lucide-react";
 import { useProjectStore } from "../../stores";

@@ -50,7 +50,7 @@ export class AzureTerraformGenerator {
         // Virtual Machines 생성
         const virtualMachines = blocks.filter((block) => block.type === "virtual-machine");
         virtualMachines.forEach((vm) => {
-            code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks, connections);
+            code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks);
         });
 
         // Storage Accounts 생성
@@ -68,7 +68,7 @@ export class AzureTerraformGenerator {
         // Load Balancers 생성
         const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
         loadBalancers.forEach((lb) => {
-            code += this.generateLoadBalancerCode(lb, subnets);
+            code += this.generateLoadBalancerCode(lb);
         });
 
         // Function Apps 생성
@@ -168,7 +168,7 @@ resource "azurerm_resource_group" "main" {
     private static generateVirtualNetworkCode(vnet: CloudBlock): string {
         const name = vnet.properties.name || vnet.name;
         const addressSpace = vnet.properties.addressSpace || ["10.0.0.0/16"];
-        const location = vnet.properties.location || "Korea Central";
+        // const location = vnet.properties.location || "Korea Central"; // 사용하지 않음
 
         return `# Virtual Network: ${name}
 resource "azurerm_virtual_network" "${this.sanitizeResourceName(vnet.id)}" {
@@ -280,8 +280,8 @@ resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
         vm: CloudBlock,
         subnets: CloudBlock[],
         nsgs: CloudBlock[],
-        managedDisks: CloudBlock[],
-        connections: Connection[]
+        managedDisks: CloudBlock[]
+        // connections 사용하지 않음
     ): string {
         const name = vm.properties.name || vm.name;
         const size = vm.properties.size || "Standard_B1s";
@@ -429,7 +429,7 @@ resource "random_string" "storage_suffix" {
     private static generateSQLDatabaseCode(sql: CloudBlock): string {
         const name = sql.properties.name || sql.name;
         const serverName = sql.properties.serverName || "sqlserver";
-        const edition = sql.properties.edition || "Basic";
+        // const edition = sql.properties.edition || "Basic"; // 사용하지 않음
         const requestedServiceObjectiveName = sql.properties.requestedServiceObjectiveName || "Basic";
 
         return `# SQL Server: ${serverName}
@@ -471,10 +471,10 @@ resource "random_string" "sql_suffix" {
 `;
     }
 
-    private static generateLoadBalancerCode(lb: CloudBlock, subnets: CloudBlock[]): string {
+    private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
         const name = lb.properties.name || lb.name;
         const sku = lb.properties.sku || "Standard";
-        const type = lb.properties.type || "Public";
+        // const type = lb.properties.type || "Public"; // 사용하지 않음
 
         return `# Public IP for Load Balancer: ${name}
 resource "azurerm_public_ip" "${this.sanitizeResourceName(lb.id)}_pip" {
