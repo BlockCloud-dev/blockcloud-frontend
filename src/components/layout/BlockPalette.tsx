@@ -13,7 +13,6 @@ interface BlockPaletteProps {
 
 // 폴백용 AWS 블록 제거 - 이제 프로바이더 시스템에서만 가져옴
 
-const CSP_TABS = ["AWS", "GCP", "Azure"];
 const CATEGORY_TABS = [
   "all",
   "Compute",
@@ -46,7 +45,6 @@ const mapCategoryToUI = (category: string): string => {
 export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
   // Zustand에서 CSP 상태 가져오기
   const selectedCSP = useProjectStore((state) => state.currentCSP);
-  const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
 
   // 상태 관리
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -112,20 +110,18 @@ export function BlockPalette({ onDragStart, onDragEnd }: BlockPaletteProps) {
 
   return (
     <div className="h-full flex flex-col flex-1 min-w-0 px-4 py-3">
-      {/* CSP Selector */}
-      <div className="flex gap-2 mb-3">
-        {CSP_TABS.map((csp) => (
-          <button
-            key={csp}
-            className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all ${selectedCSP === csp
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200 text-gray-600"
-              }`}
-            onClick={() => setCurrentCSP(csp as "AWS" | "GCP" | "Azure")}
-          >
-            {csp.toUpperCase()}
-          </button>
-        ))}
+      {/* 현재 선택된 CSP 표시 */}
+      <div className="mb-3 px-1">
+        <div className="flex items-center gap-2">
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${selectedCSP === "AWS" ? "bg-[#FF9900]" : selectedCSP === "GCP" ? "bg-[#4285F4]" : "bg-[#0078D4]"}`}>
+            <span className="text-xs text-white font-bold">{selectedCSP.charAt(0)}</span>
+          </div>
+          <div className="text-sm font-semibold text-gray-700">
+            {selectedCSP === "AWS" ? "Amazon Web Services" :
+              selectedCSP === "GCP" ? "Google Cloud Platform" :
+                "Microsoft Azure"} 블록
+          </div>
+        </div>
       </div>
 
       {/* Category Tabs */}

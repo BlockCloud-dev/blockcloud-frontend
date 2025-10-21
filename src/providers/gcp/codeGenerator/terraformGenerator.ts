@@ -6,79 +6,79 @@ import type { Connection } from '../../../types/blocks';
  * Google Cloud Platform 리소스에 대한 Terraform 코드 생성
  */
 export class GCPTerraformGenerator {
-    /**
-     * GCP Terraform 코드 생성
-     */
-    static generateCode(blocks: CloudBlock[], connections: Connection[] = []): string {
-        console.log("🔧 [GCPTerraformGenerator] Starting GCP Terraform code generation");
-        console.log("🔧 [GCPTerraformGenerator] Blocks:", blocks.length);
-        console.log("🔧 [GCPTerraformGenerator] Connections:", connections.length);
+  /**
+   * GCP Terraform 코드 생성
+   */
+  static generateCode(blocks: CloudBlock[], connections: Connection[] = []): string {
+    console.log("🔧 [GCPTerraformGenerator] Starting GCP Terraform code generation");
+    console.log("🔧 [GCPTerraformGenerator] Blocks:", blocks.length);
+    console.log("🔧 [GCPTerraformGenerator] Connections:", connections.length);
 
-        if (!blocks.length) {
-            return this.generateEmptyTemplate();
-        }
-
-        let code = this.generateHeader(blocks, connections);
-
-        // VPC Network 먼저 생성
-        const vpcNetworks = blocks.filter((block) => block.type === "vpc-network");
-        vpcNetworks.forEach((vpc) => {
-            code += this.generateVPCNetworkCode(vpc);
-        });
-
-        // Subnet 생성
-        const subnets = blocks.filter((block) => block.type === "subnet");
-        subnets.forEach((subnet) => {
-            code += this.generateSubnetCode(subnet, vpcNetworks);
-        });
-
-        // Firewall Rules 생성
-        const firewallRules = blocks.filter((block) => block.type === "firewall-rule");
-        firewallRules.forEach((fw) => {
-            code += this.generateFirewallRuleCode(fw, vpcNetworks);
-        });
-
-        // Persistent Disks 생성
-        const persistentDisks = blocks.filter((block) => block.type === "persistent-disk");
-        persistentDisks.forEach((disk) => {
-            code += this.generatePersistentDiskCode(disk);
-        });
-
-        // Compute Engine 인스턴스 생성
-        const computeEngines = blocks.filter((block) => block.type === "compute-engine");
-        computeEngines.forEach((vm) => {
-            code += this.generateComputeEngineCode(vm, subnets, persistentDisks);
-        });
-
-        // Load Balancers 생성
-        const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
-        loadBalancers.forEach((lb) => {
-            code += this.generateLoadBalancerCode(lb);
-        });
-
-        // Cloud SQL 생성
-        const cloudSQLs = blocks.filter((block) => block.type === "cloud-sql");
-        cloudSQLs.forEach((sql) => {
-            code += this.generateCloudSQLCode(sql);
-        });
-
-        // Cloud Storage 생성
-        const cloudStorages = blocks.filter((block) => block.type === "cloud-storage");
-        cloudStorages.forEach((storage) => {
-            code += this.generateCloudStorageCode(storage);
-        });
-
-        // Cloud Functions 생성
-        const cloudFunctions = blocks.filter((block) => block.type === "cloud-function");
-        cloudFunctions.forEach((fn) => {
-            code += this.generateCloudFunctionCode(fn);
-        });
-
-        return code;
+    if (!blocks.length) {
+      return this.generateEmptyTemplate();
     }
 
-    private static generateEmptyTemplate(): string {
-        return `# 아직 블록이 없습니다. 
+    let code = this.generateHeader(blocks, connections);
+
+    // VPC Network 먼저 생성
+    const vpcNetworks = blocks.filter((block) => block.type === "vpc-network");
+    vpcNetworks.forEach((vpc) => {
+      code += this.generateVPCNetworkCode(vpc);
+    });
+
+    // Subnet 생성
+    const subnets = blocks.filter((block) => block.type === "subnet");
+    subnets.forEach((subnet) => {
+      code += this.generateSubnetCode(subnet, vpcNetworks);
+    });
+
+    // Firewall Rules 생성
+    const firewallRules = blocks.filter((block) => block.type === "firewall-rule");
+    firewallRules.forEach((fw) => {
+      code += this.generateFirewallRuleCode(fw, vpcNetworks);
+    });
+
+    // Persistent Disks 생성
+    const persistentDisks = blocks.filter((block) => block.type === "persistent-disk");
+    persistentDisks.forEach((disk) => {
+      code += this.generatePersistentDiskCode(disk);
+    });
+
+    // Compute Engine 인스턴스 생성
+    const computeEngines = blocks.filter((block) => block.type === "compute-engine");
+    computeEngines.forEach((vm) => {
+      code += this.generateComputeEngineCode(vm, subnets, persistentDisks);
+    });
+
+    // Load Balancers 생성
+    const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
+    loadBalancers.forEach((lb) => {
+      code += this.generateLoadBalancerCode(lb);
+    });
+
+    // Cloud SQL 생성
+    const cloudSQLs = blocks.filter((block) => block.type === "cloud-sql");
+    cloudSQLs.forEach((sql) => {
+      code += this.generateCloudSQLCode(sql);
+    });
+
+    // Cloud Storage 생성
+    const cloudStorages = blocks.filter((block) => block.type === "cloud-storage");
+    cloudStorages.forEach((storage) => {
+      code += this.generateCloudStorageCode(storage);
+    });
+
+    // Cloud Functions 생성
+    const cloudFunctions = blocks.filter((block) => block.type === "cloud-function");
+    cloudFunctions.forEach((fn) => {
+      code += this.generateCloudFunctionCode(fn);
+    });
+
+    return code;
+  }
+
+  private static generateEmptyTemplate(): string {
+    return `# 아직 블록이 없습니다. 
 # 팔레트에서 블록을 드래그하여 캔버스에 배치하세요.
 
 terraform {
@@ -101,10 +101,10 @@ variable "project_id" {
   type        = string
 }
 `;
-    }
+  }
 
-    private static generateHeader(blocks: CloudBlock[], connections: Connection[]): string {
-        return `# GCP 인프라 - Terraform 코드
+  private static generateHeader(blocks: CloudBlock[], connections: Connection[]): string {
+    return `# GCP 인프라 - Terraform 코드
 # 마지막 업데이트: ${new Date().toLocaleString()}
 # 총 블록 수: ${blocks.length}개
 # 총 연결 수: ${connections.length}개
@@ -130,15 +130,15 @@ variable "project_id" {
 }
 
 `;
-    }
+  }
 
-    private static generateVPCNetworkCode(vpc: CloudBlock): string {
-        const name = vpc.properties.name || vpc.name;
-        const routingMode = vpc.properties.routingMode || "GLOBAL";
-        const autoCreateSubnetworks = vpc.properties.autoCreateSubnetworks ?? false;
-        const description = vpc.properties.description || vpc.description;
+  private static generateVPCNetworkCode(vpc: CloudBlock): string {
+    const name = vpc.properties.name || vpc.name;
+    const routingMode = vpc.properties.routingMode || "GLOBAL";
+    const autoCreateSubnetworks = vpc.properties.autoCreateSubnetworks ?? false;
+    const description = vpc.properties.description || vpc.description;
 
-        return `# VPC Network: ${name}
+    return `# VPC Network: ${name}
 resource "google_compute_network" "${this.sanitizeResourceName(vpc.id)}" {
   name                    = "${name}"
   description             = "${description}"
@@ -150,20 +150,20 @@ resource "google_compute_network" "${this.sanitizeResourceName(vpc.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateSubnetCode(subnet: CloudBlock, vpcNetworks: CloudBlock[]): string {
-        const name = subnet.properties.name || subnet.name;
-        const ipCidrRange = subnet.properties.ipCidrRange || "10.0.0.0/24";
-        const region = subnet.properties.region || "asia-northeast3";
-        const privateIpGoogleAccess = subnet.properties.privateIpGoogleAccess ?? true;
+  private static generateSubnetCode(subnet: CloudBlock, vpcNetworks: CloudBlock[]): string {
+    const name = subnet.properties.name || subnet.name;
+    const ipCidrRange = subnet.properties.ipCidrRange || "10.0.0.0/24";
+    const region = subnet.properties.region || "asia-northeast3";
+    const privateIpGoogleAccess = subnet.properties.privateIpGoogleAccess ?? true;
 
-        // VPC Network 참조 찾기 (첫 번째 VPC 사용)
-        const networkRef = vpcNetworks.length > 0 ?
-            `google_compute_network.${this.sanitizeResourceName(vpcNetworks[0].id)}.id` :
-            '"default"';
+    // VPC Network 참조 찾기 (첫 번째 VPC 사용)
+    const networkRef = vpcNetworks.length > 0 ?
+      `google_compute_network.${this.sanitizeResourceName(vpcNetworks[0].id)}.id` :
+      '"default"';
 
-        return `# Subnet: ${name}
+    return `# Subnet: ${name}
 resource "google_compute_subnetwork" "${this.sanitizeResourceName(subnet.id)}" {
   name          = "${name}"
   ip_cidr_range = "${ipCidrRange}"
@@ -181,21 +181,21 @@ resource "google_compute_subnetwork" "${this.sanitizeResourceName(subnet.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateFirewallRuleCode(fw: CloudBlock, vpcNetworks: CloudBlock[]): string {
-        const name = fw.properties.name || fw.name;
-        const direction = fw.properties.direction || "INGRESS";
-        const priority = fw.properties.priority || 1000;
-        const sourceRanges = fw.properties.sourceRanges || ["0.0.0.0/0"];
-        const targetTags = fw.properties.targetTags || [];
-        const allowed = fw.properties.allowed || [];
+  private static generateFirewallRuleCode(fw: CloudBlock, vpcNetworks: CloudBlock[]): string {
+    const name = fw.properties.name || fw.name;
+    const direction = fw.properties.direction || "INGRESS";
+    const priority = fw.properties.priority || 1000;
+    const sourceRanges = fw.properties.sourceRanges || ["0.0.0.0/0"];
+    const targetTags = fw.properties.targetTags || [];
+    const allowed = fw.properties.allowed || [];
 
-        const networkRef = vpcNetworks.length > 0 ?
-            `google_compute_network.${this.sanitizeResourceName(vpcNetworks[0].id)}.id` :
-            '"default"';
+    const networkRef = vpcNetworks.length > 0 ?
+      `google_compute_network.${this.sanitizeResourceName(vpcNetworks[0].id)}.id` :
+      '"default"';
 
-        let code = `# Firewall Rule: ${name}
+    let code = `# Firewall Rule: ${name}
 resource "google_compute_firewall" "${this.sanitizeResourceName(fw.id)}" {
   name      = "${name}"
   network   = ${networkRef}
@@ -204,48 +204,48 @@ resource "google_compute_firewall" "${this.sanitizeResourceName(fw.id)}" {
 
 `;
 
-        // Source ranges (INGRESS의 경우)
-        if (direction === "INGRESS" && sourceRanges.length > 0) {
-            code += `  source_ranges = ${JSON.stringify(sourceRanges)}
+    // Source ranges (INGRESS의 경우)
+    if (direction === "INGRESS" && sourceRanges.length > 0) {
+      code += `  source_ranges = ${JSON.stringify(sourceRanges)}
 
 `;
-        }
-
-        // Target tags
-        if (targetTags.length > 0) {
-            code += `  target_tags = ${JSON.stringify(targetTags)}
-
-`;
-        }
-
-        // Allow rules
-        allowed.forEach((rule: any) => {
-            code += `  allow {
-    protocol = "${rule.protocol}"
-`;
-            if (rule.ports && rule.ports.length > 0) {
-                code += `    ports    = ${JSON.stringify(rule.ports)}
-`;
-            }
-            code += `  }
-
-`;
-        });
-
-        code += `}
-
-`;
-
-        return code;
     }
 
-    private static generatePersistentDiskCode(disk: CloudBlock): string {
-        const name = disk.properties.name || disk.name;
-        const type = disk.properties.type || "pd-standard";
-        const size = disk.properties.size || 20;
-        const zone = disk.properties.zone || "asia-northeast3-a";
+    // Target tags
+    if (targetTags.length > 0) {
+      code += `  target_tags = ${JSON.stringify(targetTags)}
 
-        return `# Persistent Disk: ${name}
+`;
+    }
+
+    // Allow rules
+    allowed.forEach((rule: any) => {
+      code += `  allow {
+    protocol = "${rule.protocol}"
+`;
+      if (rule.ports && rule.ports.length > 0) {
+        code += `    ports    = ${JSON.stringify(rule.ports)}
+`;
+      }
+      code += `  }
+
+`;
+    });
+
+    code += `}
+
+`;
+
+    return code;
+  }
+
+  private static generatePersistentDiskCode(disk: CloudBlock): string {
+    const name = disk.properties.name || disk.name;
+    const type = disk.properties.type || "pd-standard";
+    const size = disk.properties.size || 20;
+    const zone = disk.properties.zone || "asia-northeast3-a";
+
+    return `# Persistent Disk: ${name}
 resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
   name = "${name}"
   type = "${type}"
@@ -259,30 +259,30 @@ resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateComputeEngineCode(
-        vm: CloudBlock,
-        subnets: CloudBlock[],
-        // firewallRules: CloudBlock[], // 사용하지 않음
-        persistentDisks: CloudBlock[]
-        // connections: Connection[] // 사용하지 않음
-    ): string {
-        const name = vm.properties.name || vm.name;
-        const machineType = vm.properties.machineType || "e2-micro";
-        const zone = vm.properties.zone || "asia-northeast3-a";
-        const bootDisk = vm.properties.bootDisk || {
-            image: "ubuntu-2004-lts",
-            size: 20,
-            type: "pd-standard"
-        };
-        const networkTags = vm.properties.networkTags || [];
+  private static generateComputeEngineCode(
+    vm: CloudBlock,
+    subnets: CloudBlock[],
+    // firewallRules: CloudBlock[], // 사용하지 않음
+    persistentDisks: CloudBlock[]
+    // connections: Connection[] // 사용하지 않음
+  ): string {
+    const name = vm.properties.name || vm.name;
+    const machineType = vm.properties.machineType || "e2-micro";
+    const zone = vm.properties.zone || "asia-northeast3-a";
+    const bootDisk = vm.properties.bootDisk || {
+      image: "ubuntu-2004-lts",
+      size: 20,
+      type: "pd-standard"
+    };
+    const networkTags = vm.properties.networkTags || [];
 
-        const subnetRef = subnets.length > 0 ?
-            `google_compute_subnetwork.${this.sanitizeResourceName(subnets[0].id)}.id` :
-            '"default"';
+    const subnetRef = subnets.length > 0 ?
+      `google_compute_subnetwork.${this.sanitizeResourceName(subnets[0].id)}.id` :
+      '"default"';
 
-        let code = `# Compute Engine: ${name}
+    let code = `# Compute Engine: ${name}
 resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
   name         = "${name}"
   machine_type = "${machineType}"
@@ -309,15 +309,15 @@ resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
 
 `;
 
-        // Network tags (firewall rules 적용용)
-        if (networkTags.length > 0) {
-            code += `  tags = ${JSON.stringify(networkTags)}
+    // Network tags (firewall rules 적용용)
+    if (networkTags.length > 0) {
+      code += `  tags = ${JSON.stringify(networkTags)}
 
 `;
-        }
+    }
 
-        // 메타데이터 설정
-        code += `  metadata = {
+    // 메타데이터 설정
+    code += `  metadata = {
     startup-script = <<-EOF
       #!/bin/bash
       apt-get update
@@ -336,27 +336,27 @@ resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
 
 `;
 
-        // 추가 디스크 연결
-        persistentDisks.forEach((disk) => {
-            code += `# Disk Attachment: ${disk.name} → ${vm.name}
+    // 추가 디스크 연결
+    persistentDisks.forEach((disk) => {
+      code += `# Disk Attachment: ${disk.name} → ${vm.name}
 resource "google_compute_attached_disk" "${this.sanitizeResourceName(vm.id)}_${this.sanitizeResourceName(disk.id)}" {
   disk     = google_compute_disk.${this.sanitizeResourceName(disk.id)}.id
   instance = google_compute_instance.${this.sanitizeResourceName(vm.id)}.id
 }
 
 `;
-        });
+    });
 
-        return code;
-    }
+    return code;
+  }
 
-    private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
-        const name = lb.properties.name || lb.name;
-        const loadBalancingScheme = lb.properties.loadBalancingScheme || "EXTERNAL";
-        const protocol = lb.properties.protocol || "HTTP";
-        const portRange = lb.properties.portRange || "80";
+  private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
+    const name = lb.properties.name || lb.name;
+    const loadBalancingScheme = lb.properties.loadBalancingScheme || "EXTERNAL";
+    const protocol = lb.properties.protocol || "HTTP";
+    const portRange = lb.properties.portRange || "80";
 
-        return `# Load Balancer: ${name}
+    return `# Load Balancer: ${name}
 # Global HTTP Load Balancer 구성
 
 # Backend Service
@@ -401,17 +401,17 @@ resource "google_compute_global_forwarding_rule" "${this.sanitizeResourceName(lb
 }
 
 `;
-    }
+  }
 
-    private static generateCloudSQLCode(sql: CloudBlock): string { // vpcNetworks 사용하지 않음
-        const name = sql.properties.name || sql.name;
-        const databaseVersion = sql.properties.databaseVersion || "MYSQL_8_0";
-        const tier = sql.properties.tier || "db-f1-micro";
-        const region = sql.properties.region || "asia-northeast3";
-        const diskSize = sql.properties.diskSize || 20;
-        const diskType = sql.properties.diskType || "PD_SSD";
+  private static generateCloudSQLCode(sql: CloudBlock): string { // vpcNetworks 사용하지 않음
+    const name = sql.properties.name || sql.name;
+    const databaseVersion = sql.properties.databaseVersion || "MYSQL_8_0";
+    const tier = sql.properties.tier || "db-f1-micro";
+    const region = sql.properties.region || "asia-northeast3";
+    const diskSize = sql.properties.diskSize || 20;
+    const diskType = sql.properties.diskType || "PD_SSD";
 
-        return `# Cloud SQL: ${name}
+    return `# Cloud SQL: ${name}
 resource "google_sql_database_instance" "${this.sanitizeResourceName(sql.id)}" {
   name             = "${name}"
   database_version = "${databaseVersion}"
@@ -457,16 +457,16 @@ resource "google_sql_user" "${this.sanitizeResourceName(sql.id)}_user" {
 }
 
 `;
-    }
+  }
 
-    private static generateCloudStorageCode(storage: CloudBlock): string {
-        const name = storage.properties.name || storage.name;
-        const location = storage.properties.location || "ASIA-NORTHEAST3";
-        const storageClass = storage.properties.storageClass || "STANDARD";
-        const versioning = storage.properties.versioning ?? false;
-        const publicAccessPrevention = storage.properties.publicAccessPrevention || "enforced";
+  private static generateCloudStorageCode(storage: CloudBlock): string {
+    const name = storage.properties.name || storage.name;
+    const location = storage.properties.location || "ASIA-NORTHEAST3";
+    const storageClass = storage.properties.storageClass || "STANDARD";
+    const versioning = storage.properties.versioning ?? false;
+    const publicAccessPrevention = storage.properties.publicAccessPrevention || "enforced";
 
-        return `# Cloud Storage: ${name}
+    return `# Cloud Storage: ${name}
 resource "google_storage_bucket" "${this.sanitizeResourceName(storage.id)}" {
   name     = "${name}-\${random_id.bucket_suffix.hex}"
   location = "${location}"
@@ -500,17 +500,17 @@ resource "random_id" "bucket_suffix" {
 }
 
 `;
-    }
+  }
 
-    private static generateCloudFunctionCode(fn: CloudBlock): string { // vpcNetworks 사용하지 않음
-        const name = fn.properties.name || fn.name;
-        const runtime = fn.properties.runtime || "python39";
-        const entryPoint = fn.properties.entryPoint || "main";
-        const region = fn.properties.region || "asia-northeast3";
-        const memory = fn.properties.memory || 256;
-        const timeout = fn.properties.timeout || 60;
+  private static generateCloudFunctionCode(fn: CloudBlock): string { // vpcNetworks 사용하지 않음
+    const name = fn.properties.name || fn.name;
+    const runtime = fn.properties.runtime || "python39";
+    const entryPoint = fn.properties.entryPoint || "main";
+    const region = fn.properties.region || "asia-northeast3";
+    const memory = fn.properties.memory || 256;
+    const timeout = fn.properties.timeout || 60;
 
-        return `# Cloud Functions: ${name}
+    return `# Cloud Functions: ${name}
 # 소스 코드 아카이브
 data "archive_file" "${this.sanitizeResourceName(fn.id)}_source" {
   type        = "zip"
@@ -586,12 +586,12 @@ resource "google_cloudfunctions_function_iam_member" "${this.sanitizeResourceNam
 }
 
 `;
-    }
+  }
 
-    /**
-     * Terraform 리소스 이름 정리 (특수문자 제거)
-     */
-    private static sanitizeResourceName(name: string): string {
-        return name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    }
+  /**
+   * Terraform 리소스 이름 정리 (특수문자 제거)
+   */
+  private static sanitizeResourceName(name: string): string {
+    return name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+  }
 }

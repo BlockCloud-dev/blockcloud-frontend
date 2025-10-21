@@ -6,82 +6,82 @@ import type { Connection } from '../../../types/blocks';
  * Microsoft Azure 리소스에 대한 Terraform 코드 생성
  */
 export class AzureTerraformGenerator {
-    /**
-     * Azure Terraform 코드 생성
-     */
-    static generateCode(blocks: CloudBlock[], connections: Connection[] = []): string {
-        console.log("🔧 [AzureTerraformGenerator] Starting Azure Terraform code generation");
-        console.log("🔧 [AzureTerraformGenerator] Blocks:", blocks.length);
-        console.log("🔧 [AzureTerraformGenerator] Connections:", connections.length);
+  /**
+   * Azure Terraform 코드 생성
+   */
+  static generateCode(blocks: CloudBlock[], connections: Connection[] = []): string {
+    console.log("🔧 [AzureTerraformGenerator] Starting Azure Terraform code generation");
+    console.log("🔧 [AzureTerraformGenerator] Blocks:", blocks.length);
+    console.log("🔧 [AzureTerraformGenerator] Connections:", connections.length);
 
-        if (!blocks.length) {
-            return this.generateEmptyTemplate();
-        }
-
-        let code = this.generateHeader(blocks, connections);
-
-        // Resource Group 먼저 생성 (모든 Azure 리소스의 기본)
-        code += this.generateResourceGroupCode();
-
-        // Virtual Network 생성
-        const virtualNetworks = blocks.filter((block) => block.type === "virtual-network");
-        virtualNetworks.forEach((vnet) => {
-            code += this.generateVirtualNetworkCode(vnet);
-        });
-
-        // Subnet 생성
-        const subnets = blocks.filter((block) => block.type === "subnet");
-        subnets.forEach((subnet) => {
-            code += this.generateSubnetCode(subnet, virtualNetworks);
-        });
-
-        // Network Security Groups 생성
-        const nsgs = blocks.filter((block) => block.type === "network-security-group");
-        nsgs.forEach((nsg) => {
-            code += this.generateNetworkSecurityGroupCode(nsg);
-        });
-
-        // Managed Disks 생성
-        const managedDisks = blocks.filter((block) => block.type === "managed-disk");
-        managedDisks.forEach((disk) => {
-            code += this.generateManagedDiskCode(disk);
-        });
-
-        // Virtual Machines 생성
-        const virtualMachines = blocks.filter((block) => block.type === "virtual-machine");
-        virtualMachines.forEach((vm) => {
-            code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks);
-        });
-
-        // Storage Accounts 생성
-        const storageAccounts = blocks.filter((block) => block.type === "storage-account");
-        storageAccounts.forEach((storage) => {
-            code += this.generateStorageAccountCode(storage);
-        });
-
-        // SQL Database 생성
-        const sqlDatabases = blocks.filter((block) => block.type === "sql-database");
-        sqlDatabases.forEach((sql) => {
-            code += this.generateSQLDatabaseCode(sql);
-        });
-
-        // Load Balancers 생성
-        const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
-        loadBalancers.forEach((lb) => {
-            code += this.generateLoadBalancerCode(lb);
-        });
-
-        // Function Apps 생성
-        const functionApps = blocks.filter((block) => block.type === "function-app");
-        functionApps.forEach((fn) => {
-            code += this.generateFunctionAppCode(fn, storageAccounts);
-        });
-
-        return code;
+    if (!blocks.length) {
+      return this.generateEmptyTemplate();
     }
 
-    private static generateEmptyTemplate(): string {
-        return `# 아직 블록이 없습니다. 
+    let code = this.generateHeader(blocks, connections);
+
+    // Resource Group 먼저 생성 (모든 Azure 리소스의 기본)
+    code += this.generateResourceGroupCode();
+
+    // Virtual Network 생성
+    const virtualNetworks = blocks.filter((block) => block.type === "virtual-network");
+    virtualNetworks.forEach((vnet) => {
+      code += this.generateVirtualNetworkCode(vnet);
+    });
+
+    // Subnet 생성
+    const subnets = blocks.filter((block) => block.type === "subnet");
+    subnets.forEach((subnet) => {
+      code += this.generateSubnetCode(subnet, virtualNetworks);
+    });
+
+    // Network Security Groups 생성
+    const nsgs = blocks.filter((block) => block.type === "network-security-group");
+    nsgs.forEach((nsg) => {
+      code += this.generateNetworkSecurityGroupCode(nsg);
+    });
+
+    // Managed Disks 생성
+    const managedDisks = blocks.filter((block) => block.type === "managed-disk");
+    managedDisks.forEach((disk) => {
+      code += this.generateManagedDiskCode(disk);
+    });
+
+    // Virtual Machines 생성
+    const virtualMachines = blocks.filter((block) => block.type === "virtual-machine");
+    virtualMachines.forEach((vm) => {
+      code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks);
+    });
+
+    // Storage Accounts 생성
+    const storageAccounts = blocks.filter((block) => block.type === "storage-account");
+    storageAccounts.forEach((storage) => {
+      code += this.generateStorageAccountCode(storage);
+    });
+
+    // SQL Database 생성
+    const sqlDatabases = blocks.filter((block) => block.type === "sql-database");
+    sqlDatabases.forEach((sql) => {
+      code += this.generateSQLDatabaseCode(sql);
+    });
+
+    // Load Balancers 생성
+    const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
+    loadBalancers.forEach((lb) => {
+      code += this.generateLoadBalancerCode(lb);
+    });
+
+    // Function Apps 생성
+    const functionApps = blocks.filter((block) => block.type === "function-app");
+    functionApps.forEach((fn) => {
+      code += this.generateFunctionAppCode(fn, storageAccounts);
+    });
+
+    return code;
+  }
+
+  private static generateEmptyTemplate(): string {
+    return `# 아직 블록이 없습니다. 
 # 팔레트에서 블록을 드래그하여 캔버스에 배치하세요.
 
 terraform {
@@ -109,10 +109,10 @@ variable "location" {
   default     = "Korea Central"
 }
 `;
-    }
+  }
 
-    private static generateHeader(blocks: CloudBlock[], connections: Connection[]): string {
-        return `# Azure 인프라 - Terraform 코드
+  private static generateHeader(blocks: CloudBlock[], connections: Connection[]): string {
+    return `# Azure 인프라 - Terraform 코드
 # 마지막 업데이트: ${new Date().toLocaleString()}
 # 총 블록 수: ${blocks.length}개
 # 총 연결 수: ${connections.length}개
@@ -147,10 +147,10 @@ variable "location" {
 }
 
 `;
-    }
+  }
 
-    private static generateResourceGroupCode(): string {
-        return `# Resource Group: 모든 리소스의 컨테이너
+  private static generateResourceGroupCode(): string {
+    return `# Resource Group: 모든 리소스의 컨테이너
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
@@ -163,14 +163,14 @@ resource "azurerm_resource_group" "main" {
 }
 
 `;
-    }
+  }
 
-    private static generateVirtualNetworkCode(vnet: CloudBlock): string {
-        const name = vnet.properties.name || vnet.name;
-        const addressSpace = vnet.properties.addressSpace || ["10.0.0.0/16"];
-        // const location = vnet.properties.location || "Korea Central"; // 사용하지 않음
+  private static generateVirtualNetworkCode(vnet: CloudBlock): string {
+    const name = vnet.properties.name || vnet.name;
+    const addressSpace = vnet.properties.addressSpace || ["10.0.0.0/16"];
+    // const location = vnet.properties.location || "Korea Central"; // 사용하지 않음
 
-        return `# Virtual Network: ${name}
+    return `# Virtual Network: ${name}
 resource "azurerm_virtual_network" "${this.sanitizeResourceName(vnet.id)}" {
   name                = "${name}"
   address_space       = ${JSON.stringify(addressSpace)}
@@ -185,18 +185,18 @@ resource "azurerm_virtual_network" "${this.sanitizeResourceName(vnet.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateSubnetCode(subnet: CloudBlock, virtualNetworks: CloudBlock[]): string {
-        const name = subnet.properties.name || subnet.name;
-        const addressPrefix = subnet.properties.addressPrefix || "10.0.1.0/24";
+  private static generateSubnetCode(subnet: CloudBlock, virtualNetworks: CloudBlock[]): string {
+    const name = subnet.properties.name || subnet.name;
+    const addressPrefix = subnet.properties.addressPrefix || "10.0.1.0/24";
 
-        // Virtual Network 참조 찾기 (첫 번째 VNet 사용)
-        const vnetRef = virtualNetworks.length > 0 ?
-            `azurerm_virtual_network.${this.sanitizeResourceName(virtualNetworks[0].id)}.name` :
-            '"default-vnet"';
+    // Virtual Network 참조 찾기 (첫 번째 VNet 사용)
+    const vnetRef = virtualNetworks.length > 0 ?
+      `azurerm_virtual_network.${this.sanitizeResourceName(virtualNetworks[0].id)}.name` :
+      '"default-vnet"';
 
-        return `# Subnet: ${name}
+    return `# Subnet: ${name}
 resource "azurerm_subnet" "${this.sanitizeResourceName(subnet.id)}" {
   name                 = "${name}"
   resource_group_name  = azurerm_resource_group.main.name
@@ -208,13 +208,13 @@ resource "azurerm_subnet" "${this.sanitizeResourceName(subnet.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateNetworkSecurityGroupCode(nsg: CloudBlock): string {
-        const name = nsg.properties.name || nsg.name;
-        const securityRules = nsg.properties.securityRules || [];
+  private static generateNetworkSecurityGroupCode(nsg: CloudBlock): string {
+    const name = nsg.properties.name || nsg.name;
+    const securityRules = nsg.properties.securityRules || [];
 
-        let code = `# Network Security Group: ${name}
+    let code = `# Network Security Group: ${name}
 resource "azurerm_network_security_group" "${this.sanitizeResourceName(nsg.id)}" {
   name                = "${name}"
   location            = azurerm_resource_group.main.location
@@ -222,9 +222,9 @@ resource "azurerm_network_security_group" "${this.sanitizeResourceName(nsg.id)}"
 
 `;
 
-        // 보안 규칙 추가
-        securityRules.forEach((rule: any) => {
-            code += `  security_rule {
+    // 보안 규칙 추가
+    securityRules.forEach((rule: any) => {
+      code += `  security_rule {
     name                       = "${rule.name}"
     priority                   = ${rule.priority}
     direction                  = "${rule.direction}"
@@ -237,9 +237,9 @@ resource "azurerm_network_security_group" "${this.sanitizeResourceName(nsg.id)}"
   }
 
 `;
-        });
+    });
 
-        code += `  tags = {
+    code += `  tags = {
     Name        = "${name}"
     Type        = "NetworkSecurityGroup"
     Environment = "Development"
@@ -248,16 +248,16 @@ resource "azurerm_network_security_group" "${this.sanitizeResourceName(nsg.id)}"
 
 `;
 
-        return code;
-    }
+    return code;
+  }
 
-    private static generateManagedDiskCode(disk: CloudBlock): string {
-        const name = disk.properties.name || disk.name;
-        const storageAccountType = disk.properties.storageAccountType || "Standard_LRS";
-        const diskSizeGb = disk.properties.diskSizeGb || 30;
-        const createOption = disk.properties.createOption || "Empty";
+  private static generateManagedDiskCode(disk: CloudBlock): string {
+    const name = disk.properties.name || disk.name;
+    const storageAccountType = disk.properties.storageAccountType || "Standard_LRS";
+    const diskSizeGb = disk.properties.diskSizeGb || 30;
+    const createOption = disk.properties.createOption || "Empty";
 
-        return `# Managed Disk: ${name}
+    return `# Managed Disk: ${name}
 resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
   name                 = "${name}"
   location             = azurerm_resource_group.main.location
@@ -274,30 +274,30 @@ resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateVirtualMachineCode(
-        vm: CloudBlock,
-        subnets: CloudBlock[],
-        nsgs: CloudBlock[],
-        managedDisks: CloudBlock[]
-        // connections 사용하지 않음
-    ): string {
-        const name = vm.properties.name || vm.name;
-        const size = vm.properties.size || "Standard_B1s";
-        const adminUsername = vm.properties.adminUsername || "azureuser";
-        const storageImageReference = vm.properties.storageImageReference || {
-            publisher: "Canonical",
-            offer: "0001-com-ubuntu-server-focal",
-            sku: "20_04-lts-gen2",
-            version: "latest"
-        };
+  private static generateVirtualMachineCode(
+    vm: CloudBlock,
+    subnets: CloudBlock[],
+    nsgs: CloudBlock[],
+    managedDisks: CloudBlock[]
+    // connections 사용하지 않음
+  ): string {
+    const name = vm.properties.name || vm.name;
+    const size = vm.properties.size || "Standard_B1s";
+    const adminUsername = vm.properties.adminUsername || "azureuser";
+    const storageImageReference = vm.properties.storageImageReference || {
+      publisher: "Canonical",
+      offer: "0001-com-ubuntu-server-focal",
+      sku: "20_04-lts-gen2",
+      version: "latest"
+    };
 
-        const subnetRef = subnets.length > 0 ?
-            `azurerm_subnet.${this.sanitizeResourceName(subnets[0].id)}.id` :
-            '"subnet-id"';
+    const subnetRef = subnets.length > 0 ?
+      `azurerm_subnet.${this.sanitizeResourceName(subnets[0].id)}.id` :
+      '"subnet-id"';
 
-        let code = `# Public IP for VM: ${name}
+    let code = `# Public IP for VM: ${name}
 resource "azurerm_public_ip" "${this.sanitizeResourceName(vm.id)}_pip" {
   name                = "${name}-pip"
   resource_group_name = azurerm_resource_group.main.name
@@ -367,20 +367,20 @@ resource "azurerm_linux_virtual_machine" "${this.sanitizeResourceName(vm.id)}" {
 
 `;
 
-        // NSG를 NIC에 연결
-        if (nsgs.length > 0) {
-            code += `# NSG Association for VM: ${name}
+    // NSG를 NIC에 연결
+    if (nsgs.length > 0) {
+      code += `# NSG Association for VM: ${name}
 resource "azurerm_network_interface_security_group_association" "${this.sanitizeResourceName(vm.id)}_nsg_association" {
   network_interface_id      = azurerm_network_interface.${this.sanitizeResourceName(vm.id)}_nic.id
   network_security_group_id = azurerm_network_security_group.${this.sanitizeResourceName(nsgs[0].id)}.id
 }
 
 `;
-        }
+    }
 
-        // 추가 디스크 연결
-        managedDisks.forEach((disk) => {
-            code += `# Disk Attachment: ${disk.name} → ${vm.name}
+    // 추가 디스크 연결
+    managedDisks.forEach((disk) => {
+      code += `# Disk Attachment: ${disk.name} → ${vm.name}
 resource "azurerm_virtual_machine_data_disk_attachment" "${this.sanitizeResourceName(vm.id)}_${this.sanitizeResourceName(disk.id)}" {
   managed_disk_id    = azurerm_managed_disk.${this.sanitizeResourceName(disk.id)}.id
   virtual_machine_id = azurerm_linux_virtual_machine.${this.sanitizeResourceName(vm.id)}.id
@@ -389,18 +389,18 @@ resource "azurerm_virtual_machine_data_disk_attachment" "${this.sanitizeResource
 }
 
 `;
-        });
+    });
 
-        return code;
-    }
+    return code;
+  }
 
-    private static generateStorageAccountCode(storage: CloudBlock): string {
-        const name = (storage.properties.name || storage.name).toLowerCase().replace(/[^a-z0-9]/g, '');
-        const accountTier = storage.properties.accountTier || "Standard";
-        const accountReplicationType = storage.properties.accountReplicationType || "LRS";
-        const accountKind = storage.properties.accountKind || "StorageV2";
+  private static generateStorageAccountCode(storage: CloudBlock): string {
+    const name = (storage.properties.name || storage.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const accountTier = storage.properties.accountTier || "Standard";
+    const accountReplicationType = storage.properties.accountReplicationType || "LRS";
+    const accountKind = storage.properties.accountKind || "StorageV2";
 
-        return `# Storage Account: ${name}
+    return `# Storage Account: ${name}
 resource "azurerm_storage_account" "${this.sanitizeResourceName(storage.id)}" {
   name                     = "${name}\${random_string.storage_suffix.result}"
   resource_group_name      = azurerm_resource_group.main.name
@@ -424,15 +424,15 @@ resource "random_string" "storage_suffix" {
 }
 
 `;
-    }
+  }
 
-    private static generateSQLDatabaseCode(sql: CloudBlock): string {
-        const name = sql.properties.name || sql.name;
-        const serverName = sql.properties.serverName || "sqlserver";
-        // const edition = sql.properties.edition || "Basic"; // 사용하지 않음
-        const requestedServiceObjectiveName = sql.properties.requestedServiceObjectiveName || "Basic";
+  private static generateSQLDatabaseCode(sql: CloudBlock): string {
+    const name = sql.properties.name || sql.name;
+    const serverName = sql.properties.serverName || "sqlserver";
+    // const edition = sql.properties.edition || "Basic"; // 사용하지 않음
+    const requestedServiceObjectiveName = sql.properties.requestedServiceObjectiveName || "Basic";
 
-        return `# SQL Server: ${serverName}
+    return `# SQL Server: ${serverName}
 resource "azurerm_mssql_server" "${this.sanitizeResourceName(sql.id)}_server" {
   name                         = "${serverName}-\${random_string.sql_suffix.result}"
   resource_group_name          = azurerm_resource_group.main.name
@@ -469,14 +469,14 @@ resource "random_string" "sql_suffix" {
 }
 
 `;
-    }
+  }
 
-    private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
-        const name = lb.properties.name || lb.name;
-        const sku = lb.properties.sku || "Standard";
-        // const type = lb.properties.type || "Public"; // 사용하지 않음
+  private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
+    const name = lb.properties.name || lb.name;
+    const sku = lb.properties.sku || "Standard";
+    // const type = lb.properties.type || "Public"; // 사용하지 않음
 
-        return `# Public IP for Load Balancer: ${name}
+    return `# Public IP for Load Balancer: ${name}
 resource "azurerm_public_ip" "${this.sanitizeResourceName(lb.id)}_pip" {
   name                = "${name}-pip"
   location            = azurerm_resource_group.main.location
@@ -509,18 +509,18 @@ resource "azurerm_lb" "${this.sanitizeResourceName(lb.id)}" {
 }
 
 `;
-    }
+  }
 
-    private static generateFunctionAppCode(fn: CloudBlock, storageAccounts: CloudBlock[]): string {
-        const name = fn.properties.name || fn.name;
-        const runtime = fn.properties.runtime || "python";
-        const version = fn.properties.version || "~4";
+  private static generateFunctionAppCode(fn: CloudBlock, storageAccounts: CloudBlock[]): string {
+    const name = fn.properties.name || fn.name;
+    const runtime = fn.properties.runtime || "python";
+    const version = fn.properties.version || "~4";
 
-        const storageRef = storageAccounts.length > 0 ?
-            `azurerm_storage_account.${this.sanitizeResourceName(storageAccounts[0].id)}.name` :
-            '"storageaccount"';
+    const storageRef = storageAccounts.length > 0 ?
+      `azurerm_storage_account.${this.sanitizeResourceName(storageAccounts[0].id)}.name` :
+      '"storageaccount"';
 
-        return `# App Service Plan for Function App: ${name}
+    return `# App Service Plan for Function App: ${name}
 resource "azurerm_service_plan" "${this.sanitizeResourceName(fn.id)}_plan" {
   name                = "${name}-plan"
   resource_group_name = azurerm_resource_group.main.name
@@ -565,12 +565,12 @@ resource "random_string" "function_suffix" {
 }
 
 `;
-    }
+  }
 
-    /**
-     * Terraform 리소스 이름 정리 (특수문자 제거)
-     */
-    private static sanitizeResourceName(name: string): string {
-        return name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    }
+  /**
+   * Terraform 리소스 이름 정리 (특수문자 제거)
+   */
+  private static sanitizeResourceName(name: string): string {
+    return name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+  }
 }

@@ -20,6 +20,7 @@ export interface ProjectState {
     id: number;
     name: string;
     description: string;
+    provider?: CloudProviderType;
   }) => void;
   newProject: () => void;
 }
@@ -62,13 +63,38 @@ export const useProjectStore = create<ProjectState>((set) => ({
   },
   setIsSaved: (saved) => set({ isSaved: saved }),
 
-  loadProject: (project) =>
-    set({
-      projectId: project.id,
-      projectName: project.name,
-      description: project.description,
-      isSaved: true,
-    }),
+  loadProject: (project) => {
+    // 프로바이더 정보가 있으면 해당 프로바이더로 설정
+    if (project.provider) {
+      // 프로바이더 매니저와 동기화
+      let csp: "AWS" | "GCP" | "Azure" = "AWS";
+      if (project.provider === CloudProviderType.AWS) {
+        csp = "AWS";
+      } else if (project.provider === CloudProviderType.GCP) {
+        csp = "GCP";
+      } else if (project.provider === CloudProviderType.AZURE) {
+        csp = "Azure";
+      }
+
+      providerManager.setCurrentProvider(project.provider);
+
+      set({
+        projectId: project.id,
+        projectName: project.name,
+        description: project.description,
+        currentCSP: csp,
+        isSaved: true,
+      });
+    } else {
+      // 프로바이더 정보가 없으면 기본값 (AWS) 사용
+      set({
+        projectId: project.id,
+        projectName: project.name,
+        description: project.description,
+        isSaved: true,
+      });
+    }
+  },
 
   newProject: () =>
     set({
