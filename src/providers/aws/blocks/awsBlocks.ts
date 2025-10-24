@@ -79,22 +79,6 @@ export const AWS_BLOCKS: CloudBlock[] = [
         }
     },
     {
-        id: "aws-ebs",
-        name: "EBS",
-        description: "Elastic Block Store",
-        provider: CloudProviderType.AWS,
-        type: "aws-ebs",
-        category: BlockCategory.STORAGE,
-        icon: Archive,
-        color: "bg-purple-600",
-        size: [1, 1, 1],
-        properties: {
-            volumeSize: 20,
-            volumeType: "gp3",
-            volumeRole: "unassigned",
-        }
-    },
-    {
         id: "aws-security-group",
         name: "Security Group",
         description: "보안 그룹",
@@ -141,7 +125,6 @@ export const AWS_BLOCK_COLORS: Record<string, string> = {
     "aws-subnet": "#10b981", // green
     "aws-ec2": "#f97316", // orange
     "aws-volume": "#8b5cf6", // purple
-    "aws-ebs": "#8b5cf6", // purple
     "aws-security-group": "#ef4444", // red
     "aws-load-balancer": "#eab308", // yellow
 };
