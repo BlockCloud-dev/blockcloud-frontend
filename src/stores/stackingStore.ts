@@ -158,7 +158,28 @@ export const useStackingStore = create<StackingStoreState>()(
       const xOverlap = childBounds.xMax > parentBounds.xMin && childBounds.xMin < parentBounds.xMax;
       const zOverlap = childBounds.zMax > parentBounds.zMin && childBounds.zMin < parentBounds.zMax;
 
-      console.log('🔍 [ValidateStacking] 겹침 검사:', { xOverlap, zOverlap });
+      // 부트볼륨용: 겹침 비율 계산 (의미있는 겹침인지 확인)
+      let xOverlapRatio = 0;
+      let zOverlapRatio = 0;
+
+      if (xOverlap) {
+        const overlapWidth = Math.min(childBounds.xMax, parentBounds.xMax) - Math.max(childBounds.xMin, parentBounds.xMin);
+        const childWidth = childBounds.xMax - childBounds.xMin;
+        xOverlapRatio = overlapWidth / childWidth;
+      }
+
+      if (zOverlap) {
+        const overlapDepth = Math.min(childBounds.zMax, parentBounds.zMax) - Math.max(childBounds.zMin, parentBounds.zMin);
+        const childDepth = childBounds.zMax - childBounds.zMin;
+        zOverlapRatio = overlapDepth / childDepth;
+      }
+
+      console.log('🔍 [ValidateStacking] 겹침 검사:', {
+        xOverlap,
+        zOverlap,
+        xOverlapRatio: (xOverlapRatio * 100).toFixed(0) + '%',
+        zOverlapRatio: (zOverlapRatio * 100).toFixed(0) + '%'
+      });
 
       // 또는 일정 거리 내에 있으면 스태킹 가능 (사용자 자유도 증가)
       const distance = Math.sqrt(
@@ -200,15 +221,24 @@ export const useStackingStore = create<StackingStoreState>()(
         isComputeVolumeStacking
       });
 
-      // 3. Y축 차이 검증 - 부트볼륨은 더 엄격하게
+      // 3. Y축 차이 검증 - 부트볼륨은 실제로 위에 쌓여야 함
       const yDiff = Math.abs(childBlock.position.y - parentBlock.position.y);
       const isBootVolumeCase = isComputeVolumeStacking;
 
       let isProperHeight: boolean;
       if (isBootVolumeCase) {
-        // 부트볼륨은 실제로 위에 스택되어야 함 (Y축 차이 0.05~3.0 범위로 확대)
-        // childBlock(EC2)가 parentBlock(Volume) 위에 있어야 함
-        isProperHeight = yDiff > 0.05 && yDiff < 3.0 && childBlock.position.y > parentBlock.position.y;
+        // 부트볼륨: 최소 0.2 이상 높이 차이가 있어야 하고, 위에 있어야 함
+        // 옆에 나란히 있으면 높이 차이가 거의 없으므로 자동 거부
+        isProperHeight = yDiff >= 0.2 && yDiff < 3.0 && childBlock.position.y > parentBlock.position.y;
+
+        console.log('🔍 [ValidateStacking] 부트볼륨 Y축 검사:', {
+          yDiff: yDiff.toFixed(3),
+          minRequired: 0.2,
+          childY: childBlock.position.y.toFixed(3),
+          parentY: parentBlock.position.y.toFixed(3),
+          isHigherThanParent: childBlock.position.y > parentBlock.position.y,
+          isProperHeight
+        });
       } else {
         // 기본 스태킹은 기존 방식
         isProperHeight = yDiff > 0.05 && yDiff < 5.0;
@@ -221,11 +251,26 @@ export const useStackingStore = create<StackingStoreState>()(
         childHigher: childBlock.position.y > parentBlock.position.y
       });
 
-      // 4. 최종 검증 - 부트볼륨도 기본 스태킹과 동일하게
+      // 4. 최종 검증 - 부트볼륨은 X/Z 양축 모두 겹쳐야 함
       let result: boolean;
       if (isBootVolumeCase) {
-        // 부트볼륨: (겹침 AND Y축) OR (거리 AND Y축) - 더 유연하게
-        result = ((xOverlap && zOverlap) || isWithinRange) && isProperHeight;
+        // 부트볼륨: X축 AND Z축 둘 다 최소 20% 이상 겹쳐야 "위에 올려놓음"으로 인정
+        // 한 축만 겹치면 "옆에 배치" 또는 "한 방향으로만 겹침"으로 거부
+        const hasSignificantOverlap = (xOverlapRatio >= 0.2) && (zOverlapRatio >= 0.2);
+        result = hasSignificantOverlap && isProperHeight;
+
+        console.log('🔍 [ValidateStacking] 부트볼륨 최종 검증:', {
+          xOverlapRatio: (xOverlapRatio * 100).toFixed(0) + '%',
+          zOverlapRatio: (zOverlapRatio * 100).toFixed(0) + '%',
+          hasSignificantOverlap,
+          isProperHeight,
+          result,
+          reason: !result ?
+            (!hasSignificantOverlap ?
+              (xOverlapRatio < 0.2 ? 'X축 겹침 부족 (옆에 배치)' : 'Z축 겹침 부족')
+              : 'Y축 부적합 (같은 높이)')
+            : 'OK'
+        });
       } else {
         // 기본 스태킹: 겹침 OR (거리 AND Y축)
         result = (xOverlap && zOverlap) || (isWithinRange && isProperHeight);

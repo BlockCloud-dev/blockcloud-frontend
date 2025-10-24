@@ -964,44 +964,85 @@ terraform {
       }))
     );
 
-    // 겹치는 블록이 있다면, 가장 위에 있는 블록과만 스택킹 규칙을 검사
+    // 겹치는 블록이 있다면, 스택킹 규칙을 검사
     if (overlappingBlocks.length > 0) {
-      // 가장 위에 있는 블록 찾기
-      const topBlock = overlappingBlocks.reduce((highest, current) =>
-        current.position.y > highest.position.y ? current : highest
-      );
+      // 이동하는 블록 자신은 제외
+      const otherBlocks = overlappingBlocks.filter(b => b.id !== blockId);
 
-      console.log("🔍 [APP_MOVE] 가장 위에 있는 블록:", {
-        id: topBlock.id,
-        type: topBlock.type,
-        y: topBlock.position.y,
-      });
+      console.log("🔍 [APP_MOVE] 자신 제외한 겹치는 블록들:", otherBlocks.length);
 
-      // 가장 위에 있는 블록과만 스택킹 규칙 검사
-      if (canStack(movingBlock.type, topBlock.type)) {
-        console.log(
-          "✅ [APP_MOVE] 스태킹 허용:",
-          movingBlock.type,
-          "on",
-          topBlock.type
-        );
-        stackingTarget = topBlock;
+      if (otherBlocks.length === 0) {
+        console.log("⚠️ [APP_MOVE] No other blocks to stack on");
       } else {
-        console.log(
-          "❌ [APP_MOVE] 스택킹 불가능:",
-          movingBlock.type,
-          "on",
-          topBlock.type
-        );
-        hasCollision = true;
+        // Compute-Volume 스태킹 우선 확인 (부트볼륨)
+        const isComputeBlock = movingBlock.type.includes('ec2') ||
+          movingBlock.type.includes('compute-engine') ||
+          movingBlock.type.includes('virtual-machine');
+
+        let volumeBlock = null;
+        if (isComputeBlock) {
+          // Volume 타입 블록 찾기
+          volumeBlock = otherBlocks.find(b =>
+            b.type.includes('volume') ||
+            b.type.includes('persistent-disk') ||
+            b.type.includes('managed-disk')
+          );
+
+          if (volumeBlock) {
+            console.log("🔍 [APP_MOVE] Volume 블록 발견:", volumeBlock.type);
+
+            // Volume과 스태킹 가능한지 확인
+            if (canStack(movingBlock.type, volumeBlock.type)) {
+              console.log("✅ [APP_MOVE] Compute-Volume 스태킹 허용");
+              stackingTarget = volumeBlock;
+            }
+          }
+        }
+
+        // Volume 스태킹이 없으면 기존 방식 (가장 위 블록)
+        if (!stackingTarget) {
+          const topBlock = otherBlocks.reduce((highest, current) =>
+            current.position.y > highest.position.y ? current : highest
+          );
+
+          console.log("🔍 [APP_MOVE] 가장 위에 있는 블록:", {
+            id: topBlock.id,
+            type: topBlock.type,
+            y: topBlock.position.y,
+          });
+
+          // 가장 위에 있는 블록과만 스택킹 규칙 검사
+          if (canStack(movingBlock.type, topBlock.type)) {
+            console.log(
+              "✅ [APP_MOVE] 스태킹 허용:",
+              movingBlock.type,
+              "on",
+              topBlock.type
+            );
+            stackingTarget = topBlock;
+          } else {
+            console.log(
+              "❌ [APP_MOVE] 스택킹 불가능:",
+              movingBlock.type,
+              "on",
+              topBlock.type
+            );
+            hasCollision = true;
+          }
+        }
       }
     }
 
     let finalPosition: Vector3;
 
     if (stackingTarget) {
-      // 스태킹 규칙 검증
-      const isValidStacking = validateStacking(movingBlock, stackingTarget);
+      // 스태킹 규칙 검증 - 새 위치로 임시 블록 생성하여 검증
+      const blockWithNewPosition = {
+        ...movingBlock,
+        position: newPosition  // 새 위치 사용!
+      };
+
+      const isValidStacking = validateStacking(blockWithNewPosition, stackingTarget);
 
       if (!isValidStacking) {
         console.log("❌ [APP_MOVE] Invalid stacking rule detected");
