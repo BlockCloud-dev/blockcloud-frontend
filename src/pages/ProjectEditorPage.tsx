@@ -11,7 +11,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
 import toast from "react-hot-toast";
-import { getStackingHint, canDeleteBlock, getStackedBlocks } from "../utils/stackingRules";
+import { getStackingHint, canDeleteBlockWithStore, getStackedBlocks } from "../utils/stackingRules";
 import { providerManager, CloudProviderType } from "../providers";
 
 // Zustand 스토어들
@@ -106,6 +106,7 @@ function ProjectEditorPage() {
 
   // 새로운 스태킹 시스템 import
   const {
+    stackingStates,
     canStack,
     createStackingRelation,
     deriveConnectionsFromStacking,
@@ -669,8 +670,8 @@ terraform {
   };
 
   const handleBlockDelete = (blockId: string) => {
-    // 스태킹 규칙에 따른 삭제 검증
-    const deleteValidation = canDeleteBlock(blockId, droppedBlocks);
+    // 스태킹 스토어 기반 삭제 검증 (더 정확함)
+    const deleteValidation = canDeleteBlockWithStore(blockId, stackingStates, droppedBlocks);
 
     if (!deleteValidation.canDelete) {
       const targetBlock = droppedBlocks.find(b => b.id === blockId);
@@ -697,6 +698,9 @@ terraform {
     }
 
     // 삭제 가능한 경우 기존 로직 실행
+    // 스태킹 관계 제거
+    removeStackingRelation(blockId);
+    
     // 블록과 관련된 모든 연결 삭제
     deleteConnectionsForBlock(blockId);
 

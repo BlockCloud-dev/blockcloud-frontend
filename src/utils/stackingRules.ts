@@ -128,11 +128,13 @@ export function getStackedBlocks(targetBlockId: string, allBlocks: any[]): any[]
 }
 
 // 삭제 가능한지 검증 (위에 스택된 블록이 없는지)
+// 이 함수는 stackingStore를 사용하도록 업데이트되어야 합니다
 export function canDeleteBlock(blockId: string, allBlocks: any[]): {
     canDelete: boolean;
     reason?: string;
     stackedBlocks?: any[];
 } {
+    // 위치 기반 검사 (fallback)
     const stackedBlocks = getStackedBlocks(blockId, allBlocks);
 
     if (stackedBlocks.length === 0) {
@@ -143,5 +145,34 @@ export function canDeleteBlock(blockId: string, allBlocks: any[]): {
         canDelete: false,
         reason: `이 블록 위에 ${stackedBlocks.length}개의 블록이 스택되어 있습니다.`,
         stackedBlocks
+    };
+}
+
+// stackingStore 기반 삭제 검증 (권장)
+export function canDeleteBlockWithStore(
+    blockId: string, 
+    stackingStates: Map<string, any>,
+    allBlocks: any[]
+): {
+    canDelete: boolean;
+    reason?: string;
+    stackedBlocks?: any[];
+} {
+    const stackingState = stackingStates.get(blockId);
+
+    // 스태킹 상태가 없거나 자식이 없으면 삭제 가능
+    if (!stackingState || stackingState.childBlockIds.length === 0) {
+        return { canDelete: true };
+    }
+
+    // 자식 블록들 찾기
+    const childBlocks = stackingState.childBlockIds
+        .map((childId: string) => allBlocks.find(b => b.id === childId))
+        .filter(Boolean);
+
+    return {
+        canDelete: false,
+        reason: `이 블록 위에 ${childBlocks.length}개의 블록이 스택되어 있습니다.`,
+        stackedBlocks: childBlocks
     };
 }

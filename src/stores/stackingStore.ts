@@ -168,10 +168,21 @@ export const useStackingStore = create<StackingStoreState>()(
         Math.pow(childBlock.position.z - parentBlock.position.z, 2)
       );
 
-      // 부트볼륨 관련 스태킹(EC2-Volume/EBS)은 매우 엄격하게
+      // 부트볼륨 관련 스태킹은 매우 엄격하게 (AWS EC2-Volume, GCP Compute-Disk, Azure VM-Disk)
       let maxStackingDistance: number;
-      if ((childBlock.type === 'ec2' && (parentBlock.type === 'volume' || parentBlock.type === 'ebs')) ||
-        (parentBlock.type === 'ec2' && (childBlock.type === 'volume' || childBlock.type === 'ebs'))) {
+      const isComputeVolumeStacking = (
+        // AWS: EC2 - EBS Volume
+        (childBlock.type === 'aws-ec2' && parentBlock.type === 'aws-volume') ||
+        (parentBlock.type === 'aws-ec2' && childBlock.type === 'aws-volume') ||
+        // GCP: Compute Engine - Persistent Disk
+        (childBlock.type === 'gcp-compute-engine' && parentBlock.type === 'gcp-persistent-disk') ||
+        (parentBlock.type === 'gcp-compute-engine' && childBlock.type === 'gcp-persistent-disk') ||
+        // Azure: Virtual Machine - Managed Disk
+        (childBlock.type === 'azure-virtual-machine' && parentBlock.type === 'azure-managed-disk') ||
+        (parentBlock.type === 'azure-virtual-machine' && childBlock.type === 'azure-managed-disk')
+      );
+
+      if (isComputeVolumeStacking) {
         // 부트볼륨 연결은 매우 가까워야 함 (최대 1.0 거리까지만)
         maxStackingDistance = 1.0;
       } else {
@@ -187,12 +198,12 @@ export const useStackingStore = create<StackingStoreState>()(
         distance: distance.toFixed(2),
         maxDistance: maxStackingDistance.toFixed(2),
         isWithinRange,
-        isBootVolumeCase: (childBlock.type === 'ec2' && (parentBlock.type === 'volume' || parentBlock.type === 'ebs'))
+        isComputeVolumeStacking
       });
 
       // 3. Y축 차이 검증 - 부트볼륨은 더 엄격하게
       const yDiff = Math.abs(childBlock.position.y - parentBlock.position.y);
-      const isBootVolumeCase = (childBlock.type === 'ec2' && (parentBlock.type === 'volume' || parentBlock.type === 'ebs'));
+      const isBootVolumeCase = isComputeVolumeStacking;
 
       let isProperHeight: boolean;
       if (isBootVolumeCase) {
@@ -247,8 +258,16 @@ export const useStackingStore = create<StackingStoreState>()(
         parentBlockId: parentId,
         childBlockIds: [],
         stackingType: rule.isBootVolume ? 'boot-volume' :
-          childBlock.type === 'vpc' || childBlock.type === 'subnet' ? 'foundation' :
-            childBlock.type === 'ec2' ? 'compute' : 'storage'
+          // Foundation: VPC/Network 또는 Subnet
+          childBlock.type === 'aws-vpc' || childBlock.type === 'aws-subnet' ||
+          childBlock.type === 'gcp-vpc-network' || childBlock.type === 'gcp-subnet' ||
+          childBlock.type === 'azure-virtual-network' || childBlock.type === 'azure-subnet' ? 'foundation' :
+          // Compute: EC2, Compute Engine, Virtual Machine
+          childBlock.type === 'aws-ec2' || 
+          childBlock.type === 'gcp-compute-engine' || 
+          childBlock.type === 'azure-virtual-machine' ? 'compute' : 
+          // Storage: Volume, Disk
+          'storage'
       };
 
       // 부모 블록 자식 목록 업데이트

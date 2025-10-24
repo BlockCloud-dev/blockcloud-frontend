@@ -24,57 +24,39 @@ export class AzureTerraformGenerator {
     code += this.generateResourceGroupCode();
 
     // Virtual Network 생성
-    const virtualNetworks = blocks.filter((block) => block.type === "virtual-network");
+    const virtualNetworks = blocks.filter((block) => block.type === "azure-virtual-network");
     virtualNetworks.forEach((vnet) => {
       code += this.generateVirtualNetworkCode(vnet);
     });
 
     // Subnet 생성
-    const subnets = blocks.filter((block) => block.type === "subnet");
+    const subnets = blocks.filter((block) => block.type === "azure-subnet");
     subnets.forEach((subnet) => {
       code += this.generateSubnetCode(subnet, virtualNetworks);
     });
 
     // Network Security Groups 생성
-    const nsgs = blocks.filter((block) => block.type === "network-security-group");
+    const nsgs = blocks.filter((block) => block.type === "azure-network-security-group");
     nsgs.forEach((nsg) => {
       code += this.generateNetworkSecurityGroupCode(nsg);
     });
 
     // Managed Disks 생성
-    const managedDisks = blocks.filter((block) => block.type === "managed-disk");
+    const managedDisks = blocks.filter((block) => block.type === "azure-managed-disk");
     managedDisks.forEach((disk) => {
       code += this.generateManagedDiskCode(disk);
     });
 
     // Virtual Machines 생성
-    const virtualMachines = blocks.filter((block) => block.type === "virtual-machine");
+    const virtualMachines = blocks.filter((block) => block.type === "azure-virtual-machine");
     virtualMachines.forEach((vm) => {
       code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks);
     });
 
-    // Storage Accounts 생성
-    const storageAccounts = blocks.filter((block) => block.type === "storage-account");
-    storageAccounts.forEach((storage) => {
-      code += this.generateStorageAccountCode(storage);
-    });
-
-    // SQL Database 생성
-    const sqlDatabases = blocks.filter((block) => block.type === "sql-database");
-    sqlDatabases.forEach((sql) => {
-      code += this.generateSQLDatabaseCode(sql);
-    });
-
     // Load Balancers 생성
-    const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
+    const loadBalancers = blocks.filter((block) => block.type === "azure-load-balancer");
     loadBalancers.forEach((lb) => {
       code += this.generateLoadBalancerCode(lb);
-    });
-
-    // Function Apps 생성
-    const functionApps = blocks.filter((block) => block.type === "function-app");
-    functionApps.forEach((fn) => {
-      code += this.generateFunctionAppCode(fn, storageAccounts);
     });
 
     return code;
@@ -394,87 +376,9 @@ resource "azurerm_virtual_machine_data_disk_attachment" "${this.sanitizeResource
     return code;
   }
 
-  private static generateStorageAccountCode(storage: CloudBlock): string {
-    const name = (storage.properties.name || storage.name).toLowerCase().replace(/[^a-z0-9]/g, '');
-    const accountTier = storage.properties.accountTier || "Standard";
-    const accountReplicationType = storage.properties.accountReplicationType || "LRS";
-    const accountKind = storage.properties.accountKind || "StorageV2";
-
-    return `# Storage Account: ${name}
-resource "azurerm_storage_account" "${this.sanitizeResourceName(storage.id)}" {
-  name                     = "${name}\${random_string.storage_suffix.result}"
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  account_tier             = "${accountTier}"
-  account_replication_type = "${accountReplicationType}"
-  account_kind            = "${accountKind}"
-
-  tags = {
-    Name        = "${name}"
-    Type        = "StorageAccount"
-    Environment = "Development"
-  }
-}
-
-# 스토리지 계정명 고유성을 위한 랜덤 문자열
-resource "random_string" "storage_suffix" {
-  length  = 4
-  special = false
-  upper   = false
-}
-
-`;
-  }
-
-  private static generateSQLDatabaseCode(sql: CloudBlock): string {
-    const name = sql.properties.name || sql.name;
-    const serverName = sql.properties.serverName || "sqlserver";
-    // const edition = sql.properties.edition || "Basic"; // 사용하지 않음
-    const requestedServiceObjectiveName = sql.properties.requestedServiceObjectiveName || "Basic";
-
-    return `# SQL Server: ${serverName}
-resource "azurerm_mssql_server" "${this.sanitizeResourceName(sql.id)}_server" {
-  name                         = "${serverName}-\${random_string.sql_suffix.result}"
-  resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
-  version                      = "12.0"
-  administrator_login          = "sqladmin"
-  administrator_login_password = "P@ssw0rd123!"  # 실제 환경에서는 변수 사용
-
-  tags = {
-    Environment = "Development"
-  }
-}
-
-# SQL Database: ${name}
-resource "azurerm_mssql_database" "${this.sanitizeResourceName(sql.id)}" {
-  name           = "${name}"
-  server_id      = azurerm_mssql_server.${this.sanitizeResourceName(sql.id)}_server.id
-  collation      = "SQL_Latin1_General_CP1_CI_AS"
-  license_type   = "LicenseIncluded"
-  sku_name       = "${requestedServiceObjectiveName}"
-
-  tags = {
-    Name        = "${name}"
-    Type        = "SQLDatabase"
-    Environment = "Development"
-  }
-}
-
-# SQL Server 이름 고유성을 위한 랜덤 문자열
-resource "random_string" "sql_suffix" {
-  length  = 4
-  special = false
-  upper   = false
-}
-
-`;
-  }
-
-  private static generateLoadBalancerCode(lb: CloudBlock): string { // subnets 사용하지 않음
+  private static generateLoadBalancerCode(lb: CloudBlock): string {
     const name = lb.properties.name || lb.name;
     const sku = lb.properties.sku || "Standard";
-    // const type = lb.properties.type || "Public"; // 사용하지 않음
 
     return `# Public IP for Load Balancer: ${name}
 resource "azurerm_public_ip" "${this.sanitizeResourceName(lb.id)}_pip" {
@@ -506,62 +410,6 @@ resource "azurerm_lb" "${this.sanitizeResourceName(lb.id)}" {
     Type        = "LoadBalancer"
     Environment = "Development"
   }
-}
-
-`;
-  }
-
-  private static generateFunctionAppCode(fn: CloudBlock, storageAccounts: CloudBlock[]): string {
-    const name = fn.properties.name || fn.name;
-    const runtime = fn.properties.runtime || "python";
-    const version = fn.properties.version || "~4";
-
-    const storageRef = storageAccounts.length > 0 ?
-      `azurerm_storage_account.${this.sanitizeResourceName(storageAccounts[0].id)}.name` :
-      '"storageaccount"';
-
-    return `# App Service Plan for Function App: ${name}
-resource "azurerm_service_plan" "${this.sanitizeResourceName(fn.id)}_plan" {
-  name                = "${name}-plan"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  os_type             = "Linux"
-  sku_name           = "Y1"  # Consumption plan
-}
-
-# Function App: ${name}
-resource "azurerm_linux_function_app" "${this.sanitizeResourceName(fn.id)}" {
-  name                = "${name}-\${random_string.function_suffix.result}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-
-  storage_account_name       = ${storageRef}
-  storage_account_access_key = azurerm_storage_account.${storageAccounts.length > 0 ? this.sanitizeResourceName(storageAccounts[0].id) : 'default'}.primary_access_key
-  service_plan_id           = azurerm_service_plan.${this.sanitizeResourceName(fn.id)}_plan.id
-
-  site_config {
-    application_stack {
-      python_version = "3.9"
-    }
-  }
-
-  app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME" = "${runtime}"
-    "FUNCTIONS_EXTENSION_VERSION" = "${version}"
-  }
-
-  tags = {
-    Name        = "${name}"
-    Type        = "FunctionApp"
-    Environment = "Development"
-  }
-}
-
-# Function App 이름 고유성을 위한 랜덤 문자열
-resource "random_string" "function_suffix" {
-  length  = 4
-  special = false
-  upper   = false
 }
 
 `;

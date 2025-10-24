@@ -21,57 +21,39 @@ export class GCPTerraformGenerator {
     let code = this.generateHeader(blocks, connections);
 
     // VPC Network 먼저 생성
-    const vpcNetworks = blocks.filter((block) => block.type === "vpc-network");
+    const vpcNetworks = blocks.filter((block) => block.type === "gcp-vpc-network");
     vpcNetworks.forEach((vpc) => {
       code += this.generateVPCNetworkCode(vpc);
     });
 
     // Subnet 생성
-    const subnets = blocks.filter((block) => block.type === "subnet");
+    const subnets = blocks.filter((block) => block.type === "gcp-subnet");
     subnets.forEach((subnet) => {
       code += this.generateSubnetCode(subnet, vpcNetworks);
     });
 
     // Firewall Rules 생성
-    const firewallRules = blocks.filter((block) => block.type === "firewall-rule");
+    const firewallRules = blocks.filter((block) => block.type === "gcp-firewall-rule");
     firewallRules.forEach((fw) => {
       code += this.generateFirewallRuleCode(fw, vpcNetworks);
     });
 
     // Persistent Disks 생성
-    const persistentDisks = blocks.filter((block) => block.type === "persistent-disk");
+    const persistentDisks = blocks.filter((block) => block.type === "gcp-persistent-disk");
     persistentDisks.forEach((disk) => {
       code += this.generatePersistentDiskCode(disk);
     });
 
     // Compute Engine 인스턴스 생성
-    const computeEngines = blocks.filter((block) => block.type === "compute-engine");
+    const computeEngines = blocks.filter((block) => block.type === "gcp-compute-engine");
     computeEngines.forEach((vm) => {
       code += this.generateComputeEngineCode(vm, subnets, persistentDisks);
     });
 
     // Load Balancers 생성
-    const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
+    const loadBalancers = blocks.filter((block) => block.type === "gcp-load-balancer");
     loadBalancers.forEach((lb) => {
       code += this.generateLoadBalancerCode(lb);
-    });
-
-    // Cloud SQL 생성
-    const cloudSQLs = blocks.filter((block) => block.type === "cloud-sql");
-    cloudSQLs.forEach((sql) => {
-      code += this.generateCloudSQLCode(sql);
-    });
-
-    // Cloud Storage 생성
-    const cloudStorages = blocks.filter((block) => block.type === "cloud-storage");
-    cloudStorages.forEach((storage) => {
-      code += this.generateCloudStorageCode(storage);
-    });
-
-    // Cloud Functions 생성
-    const cloudFunctions = blocks.filter((block) => block.type === "cloud-function");
-    cloudFunctions.forEach((fn) => {
-      code += this.generateCloudFunctionCode(fn);
     });
 
     return code;
@@ -398,191 +380,6 @@ resource "google_compute_global_forwarding_rule" "${this.sanitizeResourceName(lb
   name       = "${name}-forwarding-rule"
   target     = google_compute_target_http_proxy.${this.sanitizeResourceName(lb.id)}_proxy.id
   port_range = "${portRange}"
-}
-
-`;
-  }
-
-  private static generateCloudSQLCode(sql: CloudBlock): string { // vpcNetworks 사용하지 않음
-    const name = sql.properties.name || sql.name;
-    const databaseVersion = sql.properties.databaseVersion || "MYSQL_8_0";
-    const tier = sql.properties.tier || "db-f1-micro";
-    const region = sql.properties.region || "asia-northeast3";
-    const diskSize = sql.properties.diskSize || 20;
-    const diskType = sql.properties.diskType || "PD_SSD";
-
-    return `# Cloud SQL: ${name}
-resource "google_sql_database_instance" "${this.sanitizeResourceName(sql.id)}" {
-  name             = "${name}"
-  database_version = "${databaseVersion}"
-  region           = "${region}"
-
-  settings {
-    tier      = "${tier}"
-    disk_size = ${diskSize}
-    disk_type = "${diskType}"
-
-    backup_configuration {
-      enabled                        = true
-      start_time                     = "03:00"
-      location                       = "${region}"
-      point_in_time_recovery_enabled = true
-    }
-
-    ip_configuration {
-      ipv4_enabled = true
-      
-      # 보안을 위해 특정 IP만 허용 (개발용으로는 0.0.0.0/0 사용)
-      authorized_networks {
-        name  = "all"
-        value = "0.0.0.0/0"
-      }
-    }
-  }
-
-  deletion_protection = false  # 개발용 설정
-}
-
-# 데이터베이스 생성
-resource "google_sql_database" "${this.sanitizeResourceName(sql.id)}_db" {
-  name     = "main_db"
-  instance = google_sql_database_instance.${this.sanitizeResourceName(sql.id)}.name
-}
-
-# 사용자 생성
-resource "google_sql_user" "${this.sanitizeResourceName(sql.id)}_user" {
-  name     = "admin"
-  instance = google_sql_database_instance.${this.sanitizeResourceName(sql.id)}.name
-  password = "changeme123!"  # 실제 환경에서는 변수 사용
-}
-
-`;
-  }
-
-  private static generateCloudStorageCode(storage: CloudBlock): string {
-    const name = storage.properties.name || storage.name;
-    const location = storage.properties.location || "ASIA-NORTHEAST3";
-    const storageClass = storage.properties.storageClass || "STANDARD";
-    const versioning = storage.properties.versioning ?? false;
-    const publicAccessPrevention = storage.properties.publicAccessPrevention || "enforced";
-
-    return `# Cloud Storage: ${name}
-resource "google_storage_bucket" "${this.sanitizeResourceName(storage.id)}" {
-  name     = "${name}-\${random_id.bucket_suffix.hex}"
-  location = "${location}"
-  
-  storage_class = "${storageClass}"
-  
-  public_access_prevention = "${publicAccessPrevention}"
-  
-  versioning {
-    enabled = ${versioning}
-  }
-  
-  lifecycle_rule {
-    condition {
-      age = 30
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
-  labels = {
-    environment = "development"
-    created_by  = "terraform"
-  }
-}
-
-# 버킷명 고유성을 위한 랜덤 ID
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
-`;
-  }
-
-  private static generateCloudFunctionCode(fn: CloudBlock): string { // vpcNetworks 사용하지 않음
-    const name = fn.properties.name || fn.name;
-    const runtime = fn.properties.runtime || "python39";
-    const entryPoint = fn.properties.entryPoint || "main";
-    const region = fn.properties.region || "asia-northeast3";
-    const memory = fn.properties.memory || 256;
-    const timeout = fn.properties.timeout || 60;
-
-    return `# Cloud Functions: ${name}
-# 소스 코드 아카이브
-data "archive_file" "${this.sanitizeResourceName(fn.id)}_source" {
-  type        = "zip"
-  output_path = "${name}-source.zip"
-  
-  source {
-    content = <<EOF
-def ${entryPoint}(request):
-    return 'Hello from ${name}!'
-EOF
-    filename = "main.py"
-  }
-  
-  source {
-    content = <<EOF
-functions-framework==3.*
-EOF
-    filename = "requirements.txt"
-  }
-}
-
-# 소스 코드를 저장할 버킷
-resource "google_storage_bucket" "${this.sanitizeResourceName(fn.id)}_bucket" {
-  name     = "${name}-source-\${random_id.${this.sanitizeResourceName(fn.id)}_suffix.hex}"
-  location = "ASIA"
-}
-
-resource "random_id" "${this.sanitizeResourceName(fn.id)}_suffix" {
-  byte_length = 4
-}
-
-# 소스 코드 업로드
-resource "google_storage_bucket_object" "${this.sanitizeResourceName(fn.id)}_source_object" {
-  name   = "${name}-source.zip"
-  bucket = google_storage_bucket.${this.sanitizeResourceName(fn.id)}_bucket.name
-  source = data.archive_file.${this.sanitizeResourceName(fn.id)}_source.output_path
-}
-
-# Cloud Function
-resource "google_cloudfunctions_function" "${this.sanitizeResourceName(fn.id)}" {
-  name        = "${name}"
-  description = "Cloud Function: ${fn.description}"
-  runtime     = "${runtime}"
-  region      = "${region}"
-
-  available_memory_mb   = ${memory}
-  timeout              = ${timeout}
-  entry_point          = "${entryPoint}"
-  
-  source_archive_bucket = google_storage_bucket.${this.sanitizeResourceName(fn.id)}_bucket.name
-  source_archive_object = google_storage_bucket_object.${this.sanitizeResourceName(fn.id)}_source_object.name
-
-  trigger {
-    http_trigger {
-      url = ""
-    }
-  }
-
-  labels = {
-    environment = "development"
-    created_by  = "terraform"
-  }
-}
-
-# HTTP 트리거를 위한 IAM 정책
-resource "google_cloudfunctions_function_iam_member" "${this.sanitizeResourceName(fn.id)}_invoker" {
-  project        = google_cloudfunctions_function.${this.sanitizeResourceName(fn.id)}.project
-  region         = google_cloudfunctions_function.${this.sanitizeResourceName(fn.id)}.region
-  cloud_function = google_cloudfunctions_function.${this.sanitizeResourceName(fn.id)}.name
-
-  role   = "roles/cloudfunctions.invoker"
-  member = "allUsers"
 }
 
 `;

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { BlockProperties } from '../../types/blocks';
-import { useBlockStore } from '../../stores';
-import { canDeleteBlock, getStackedBlocks } from '../../utils/stackingRules';
+import { useBlockStore, useStackingStore } from '../../stores';
+import { canDeleteBlockWithStore, getStackedBlocks } from '../../utils/stackingRules';
 
 interface PropertiesPanelProps {
   // props 없이 Zustand에서 직접 상태 가져오기
@@ -13,6 +13,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
   const propertiesBlockId = useBlockStore((state) => state.propertiesBlockId);
   const updateBlockProperties = useBlockStore((state) => state.updateBlockProperties);
   const resizeBlock = useBlockStore((state) => state.resizeBlock);
+  
+  // 스태킹 스토어에서 상태 가져오기
+  const stackingStates = useStackingStore((state) => state.stackingStates);
 
   // 선택된 블록 찾기
   const selectedBlock = propertiesBlockId
@@ -43,7 +46,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
   const renderDeleteInfo = () => {
     if (!selectedBlock) return null;
 
-    const deleteValidation = canDeleteBlock(selectedBlock.id, droppedBlocks);
+    // 스태킹 스토어 기반 삭제 검증 사용
+    const deleteValidation = canDeleteBlockWithStore(selectedBlock.id, stackingStates, droppedBlocks);
     const stackedBlocks = getStackedBlocks(selectedBlock.id, droppedBlocks);
 
     return (

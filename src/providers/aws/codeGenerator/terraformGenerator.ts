@@ -21,37 +21,37 @@ export class AWSTerraformGenerator {
     let code = this.generateHeader(blocks, connections);
 
     // VPC 먼저 생성
-    const vpcs = blocks.filter((block) => block.type === "vpc");
+    const vpcs = blocks.filter((block) => block.type === "aws-vpc");
     vpcs.forEach((vpc) => {
       code += this.generateVPCCode(vpc);
     });
 
     // Subnet 생성
-    const subnets = blocks.filter((block) => block.type === "subnet");
+    const subnets = blocks.filter((block) => block.type === "aws-subnet");
     subnets.forEach((subnet) => {
       code += this.generateSubnetCode(subnet, vpcs);
     });
 
     // Security Groups 생성
-    const securityGroups = blocks.filter((block) => block.type === "security-group");
+    const securityGroups = blocks.filter((block) => block.type === "aws-security-group");
     securityGroups.forEach((sg) => {
       code += this.generateSecurityGroupCode(sg, vpcs);
     });
 
     // EBS Volumes 생성
-    const volumes = blocks.filter((block) => block.type === "volume" || block.type === "ebs");
+    const volumes = blocks.filter((block) => block.type === "aws-volume");
     volumes.forEach((volume) => {
       code += this.generateVolumeCode(volume);
     });
 
     // EC2 인스턴스 생성
-    const ec2s = blocks.filter((block) => block.type === "ec2");
+    const ec2s = blocks.filter((block) => block.type === "aws-ec2");
     ec2s.forEach((ec2) => {
       code += this.generateEC2Code(ec2, subnets, securityGroups, volumes);
     });
 
     // Load Balancers 생성
-    const loadBalancers = blocks.filter((block) => block.type === "load-balancer");
+    const loadBalancers = blocks.filter((block) => block.type === "aws-load-balancer");
     loadBalancers.forEach((lb) => {
       code += this.generateLoadBalancerCode(lb, subnets, securityGroups);
     });
