@@ -50,7 +50,7 @@ export class AzureTerraformGenerator {
     // Virtual Machines 생성
     const virtualMachines = blocks.filter((block) => block.type === "azure-virtual-machine");
     virtualMachines.forEach((vm) => {
-      code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks);
+      code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks, connections);
     });
 
     // Load Balancers 생성
@@ -262,8 +262,8 @@ resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
     vm: CloudBlock,
     subnets: CloudBlock[],
     nsgs: CloudBlock[],
-    managedDisks: CloudBlock[]
-    // connections 사용하지 않음
+    managedDisks: CloudBlock[],
+    connections: Connection[]
   ): string {
     const name = vm.properties.name || vm.name;
     const size = vm.properties.size || "Standard_B1s";
@@ -360,9 +360,21 @@ resource "azurerm_network_interface_security_group_association" "${this.sanitize
 `;
     }
 
-    // 추가 디스크 연결
+    // 추가 디스크 연결 - OS디스크와 데이터디스크 구분
     managedDisks.forEach((disk) => {
-      code += `# Disk Attachment: ${disk.name} → ${vm.name}
+      // 이 VM과 Disk 사이의 연결 찾기
+      const diskConnection = connections.find(conn => 
+        (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
+        (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
+      );
+
+      // 스태킹 연결인지 확인 (OS 디스크)
+      const isOSDisk = diskConnection?.properties?.stackConnection === true &&
+                      diskConnection?.properties?.volumeType === 'boot';
+
+      // OS디스크가 아닌 경우에만 data_disk_attachment 생성 (데이터 디스크)
+      if (!isOSDisk && diskConnection) {
+        code += `# Disk Attachment (데이터 디스크): ${disk.name} → ${vm.name}
 resource "azurerm_virtual_machine_data_disk_attachment" "${this.sanitizeResourceName(vm.id)}_${this.sanitizeResourceName(disk.id)}" {
   managed_disk_id    = azurerm_managed_disk.${this.sanitizeResourceName(disk.id)}.id
   virtual_machine_id = azurerm_linux_virtual_machine.${this.sanitizeResourceName(vm.id)}.id
@@ -371,6 +383,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "${this.sanitizeResource
 }
 
 `;
+      }
     });
 
     return code;

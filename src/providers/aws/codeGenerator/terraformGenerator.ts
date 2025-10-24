@@ -47,7 +47,7 @@ export class AWSTerraformGenerator {
     // EC2 인스턴스 생성
     const ec2s = blocks.filter((block) => block.type === "aws-ec2");
     ec2s.forEach((ec2) => {
-      code += this.generateEC2Code(ec2, subnets, securityGroups, volumes);
+      code += this.generateEC2Code(ec2, subnets, securityGroups, volumes, connections);
     });
 
     // Load Balancers 생성
@@ -224,8 +224,8 @@ resource "aws_ebs_volume" "${this.sanitizeResourceName(volume.id)}" {
     ec2: CloudBlock,
     subnets: CloudBlock[],
     securityGroups: CloudBlock[],
-    volumes: CloudBlock[]
-    // connections는 사용하지 않음
+    volumes: CloudBlock[],
+    connections: Connection[]
   ): string {
     const instanceType = ec2.properties.instanceType || "t3.micro";
     const ami = ec2.properties.ami || "ami-0c6e5afdd23291f73";
@@ -260,9 +260,21 @@ resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {
 
 `;
 
-    // EBS Volume 연결
-    volumes.forEach((volume) => { // index 사용하지 않음
-      code += `# EBS Volume Attachment: ${volume.name} → ${ec2.name}
+    // EBS Volume 연결 - 부트볼륨과 추가볼륨 구분
+    volumes.forEach((volume) => {
+      // 이 EC2와 Volume 사이의 연결 찾기
+      const volumeConnection = connections.find(conn => 
+        (conn.fromBlockId === ec2.id && conn.toBlockId === volume.id) ||
+        (conn.fromBlockId === volume.id && conn.toBlockId === ec2.id)
+      );
+
+      // 스태킹 연결인지 확인 (부트볼륨)
+      const isBootVolume = volumeConnection?.properties?.stackConnection === true &&
+                          volumeConnection?.properties?.volumeType === 'boot';
+
+      // 부트볼륨이 아닌 경우에만 volume_attachment 생성 (추가 볼륨)
+      if (!isBootVolume && volumeConnection) {
+        code += `# EBS Volume Attachment (추가 볼륨): ${volume.name} → ${ec2.name}
 resource "aws_volume_attachment" "${this.sanitizeResourceName(ec2.id)}_${this.sanitizeResourceName(volume.id)}" {
   device_name = "/dev/sdf"
   volume_id   = aws_ebs_volume.${this.sanitizeResourceName(volume.id)}.id
@@ -270,6 +282,7 @@ resource "aws_volume_attachment" "${this.sanitizeResourceName(ec2.id)}_${this.sa
 }
 
 `;
+      }
     });
 
     return code;

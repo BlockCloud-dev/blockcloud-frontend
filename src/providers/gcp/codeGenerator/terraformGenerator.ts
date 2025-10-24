@@ -47,7 +47,7 @@ export class GCPTerraformGenerator {
     // Compute Engine 인스턴스 생성
     const computeEngines = blocks.filter((block) => block.type === "gcp-compute-engine");
     computeEngines.forEach((vm) => {
-      code += this.generateComputeEngineCode(vm, subnets, persistentDisks);
+      code += this.generateComputeEngineCode(vm, subnets, persistentDisks, connections);
     });
 
     // Load Balancers 생성
@@ -246,9 +246,8 @@ resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
   private static generateComputeEngineCode(
     vm: CloudBlock,
     subnets: CloudBlock[],
-    // firewallRules: CloudBlock[], // 사용하지 않음
-    persistentDisks: CloudBlock[]
-    // connections: Connection[] // 사용하지 않음
+    persistentDisks: CloudBlock[],
+    connections: Connection[]
   ): string {
     const name = vm.properties.name || vm.name;
     const machineType = vm.properties.machineType || "e2-micro";
@@ -318,15 +317,28 @@ resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
 
 `;
 
-    // 추가 디스크 연결
+    // 추가 디스크 연결 - 부트디스크와 추가디스크 구분
     persistentDisks.forEach((disk) => {
-      code += `# Disk Attachment: ${disk.name} → ${vm.name}
+      // 이 VM과 Disk 사이의 연결 찾기
+      const diskConnection = connections.find(conn => 
+        (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
+        (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
+      );
+
+      // 스태킹 연결인지 확인 (부트 디스크)
+      const isBootDisk = diskConnection?.properties?.stackConnection === true &&
+                        diskConnection?.properties?.volumeType === 'boot';
+
+      // 부트디스크가 아닌 경우에만 attached_disk 생성 (추가 디스크)
+      if (!isBootDisk && diskConnection) {
+        code += `# Disk Attachment (추가 디스크): ${disk.name} → ${vm.name}
 resource "google_compute_attached_disk" "${this.sanitizeResourceName(vm.id)}_${this.sanitizeResourceName(disk.id)}" {
   disk     = google_compute_disk.${this.sanitizeResourceName(disk.id)}.id
   instance = google_compute_instance.${this.sanitizeResourceName(vm.id)}.id
 }
 
 `;
+      }
     });
 
     return code;
