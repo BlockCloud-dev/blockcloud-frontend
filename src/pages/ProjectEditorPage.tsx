@@ -700,7 +700,7 @@ terraform {
     // 삭제 가능한 경우 기존 로직 실행
     // 스태킹 관계 제거
     removeStackingRelation(blockId);
-    
+
     // 블록과 관련된 모든 연결 삭제
     deleteConnectionsForBlock(blockId);
 

@@ -13,7 +13,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ }) => {
   const propertiesBlockId = useBlockStore((state) => state.propertiesBlockId);
   const updateBlockProperties = useBlockStore((state) => state.updateBlockProperties);
   const resizeBlock = useBlockStore((state) => state.resizeBlock);
-  
+
   // 스태킹 스토어에서 상태 가져오기
   const stackingStates = useStackingStore((state) => state.stackingStates);
 

@@ -260,14 +260,14 @@ export const useStackingStore = create<StackingStoreState>()(
         stackingType: rule.isBootVolume ? 'boot-volume' :
           // Foundation: VPC/Network 또는 Subnet
           childBlock.type === 'aws-vpc' || childBlock.type === 'aws-subnet' ||
-          childBlock.type === 'gcp-vpc-network' || childBlock.type === 'gcp-subnet' ||
-          childBlock.type === 'azure-virtual-network' || childBlock.type === 'azure-subnet' ? 'foundation' :
-          // Compute: EC2, Compute Engine, Virtual Machine
-          childBlock.type === 'aws-ec2' || 
-          childBlock.type === 'gcp-compute-engine' || 
-          childBlock.type === 'azure-virtual-machine' ? 'compute' : 
-          // Storage: Volume, Disk
-          'storage'
+            childBlock.type === 'gcp-vpc-network' || childBlock.type === 'gcp-subnet' ||
+            childBlock.type === 'azure-virtual-network' || childBlock.type === 'azure-subnet' ? 'foundation' :
+            // Compute: EC2, Compute Engine, Virtual Machine
+            childBlock.type === 'aws-ec2' ||
+              childBlock.type === 'gcp-compute-engine' ||
+              childBlock.type === 'azure-virtual-machine' ? 'compute' :
+              // Storage: Volume, Disk
+              'storage'
       };
 
       // 부모 블록 자식 목록 업데이트
