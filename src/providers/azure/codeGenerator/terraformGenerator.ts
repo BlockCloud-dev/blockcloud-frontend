@@ -41,14 +41,29 @@ export class AzureTerraformGenerator {
       code += this.generateNetworkSecurityGroupCode(nsg);
     });
 
-    // Managed Disks 생성
+    // Managed Disks 생성 (OS 디스크로 사용되지 않는 것만)
     const managedDisks = blocks.filter((block) => block.type === "azure-managed-disk");
+    const virtualMachines = blocks.filter((block) => block.type === "azure-virtual-machine");
+
     managedDisks.forEach((disk) => {
-      code += this.generateManagedDiskCode(disk);
+      // 이 Disk가 OS 디스크로 사용되는지 확인
+      const isOSDisk = connections.some(conn => {
+        const isDiskConnection = (
+          (conn.fromBlockId === disk.id || conn.toBlockId === disk.id) &&
+          virtualMachines.some(vm => vm.id === conn.fromBlockId || vm.id === conn.toBlockId)
+        );
+        return isDiskConnection &&
+          conn.properties?.stackConnection === true &&
+          conn.properties?.volumeType === 'boot';
+      });
+
+      // OS 디스크가 아닌 경우만 별도 리소스 생성
+      if (!isOSDisk) {
+        code += this.generateManagedDiskCode(disk);
+      }
     });
 
     // Virtual Machines 생성
-    const virtualMachines = blocks.filter((block) => block.type === "azure-virtual-machine");
     virtualMachines.forEach((vm) => {
       code += this.generateVirtualMachineCode(vm, subnets, nsgs, managedDisks, connections);
     });
@@ -286,7 +301,7 @@ resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
         (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
       );
       return diskConnection?.properties?.stackConnection === true &&
-             diskConnection?.properties?.volumeType === 'boot';
+        diskConnection?.properties?.volumeType === 'boot';
     });
 
     let code = `# Public IP for VM: ${name}
@@ -405,7 +420,7 @@ resource "azurerm_network_interface_security_group_association" "${this.sanitize
 
       // 스태킹 연결인지 확인 (OS 디스크)
       const isOSDisk = diskConnection.properties?.stackConnection === true &&
-                      diskConnection.properties?.volumeType === 'boot';
+        diskConnection.properties?.volumeType === 'boot';
 
       // OS디스크가 아니고 Road 연결인 경우만 attachment 생성
       if (!isOSDisk) {

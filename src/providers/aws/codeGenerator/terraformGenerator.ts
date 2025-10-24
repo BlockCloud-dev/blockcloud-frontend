@@ -38,14 +38,29 @@ export class AWSTerraformGenerator {
       code += this.generateSecurityGroupCode(sg, vpcs);
     });
 
-    // EBS Volumes 생성
+    // EBS Volumes 생성 (부트볼륨으로 사용되지 않는 것만)
     const volumes = blocks.filter((block) => block.type === "aws-volume");
+    const ec2s = blocks.filter((block) => block.type === "aws-ec2");
+
     volumes.forEach((volume) => {
-      code += this.generateVolumeCode(volume);
+      // 이 Volume이 부트볼륨으로 사용되는지 확인
+      const isBootVolume = connections.some(conn => {
+        const isVolumeConnection = (
+          (conn.fromBlockId === volume.id || conn.toBlockId === volume.id) &&
+          ec2s.some(ec2 => ec2.id === conn.fromBlockId || ec2.id === conn.toBlockId)
+        );
+        return isVolumeConnection &&
+          conn.properties?.stackConnection === true &&
+          conn.properties?.volumeType === 'boot';
+      });
+
+      // 부트볼륨이 아닌 경우만 별도 리소스 생성
+      if (!isBootVolume) {
+        code += this.generateVolumeCode(volume);
+      }
     });
 
     // EC2 인스턴스 생성
-    const ec2s = blocks.filter((block) => block.type === "aws-ec2");
     ec2s.forEach((ec2) => {
       code += this.generateEC2Code(ec2, subnets, securityGroups, volumes, connections);
     });
@@ -241,7 +256,7 @@ resource "aws_ebs_volume" "${this.sanitizeResourceName(volume.id)}" {
         (conn.fromBlockId === volume.id && conn.toBlockId === ec2.id)
       );
       return volumeConnection?.properties?.stackConnection === true &&
-             volumeConnection?.properties?.volumeType === 'boot';
+        volumeConnection?.properties?.volumeType === 'boot';
     });
 
     let code = `# EC2 Instance: ${ec2.properties.name || ec2.name}
@@ -299,7 +314,7 @@ resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {
 
       // 스태킹 연결인지 확인 (부트볼륨)
       const isBootVolume = volumeConnection.properties?.stackConnection === true &&
-                          volumeConnection.properties?.volumeType === 'boot';
+        volumeConnection.properties?.volumeType === 'boot';
 
       // 부트볼륨이 아니고 Road 연결인 경우만 attachment 생성
       if (!isBootVolume) {

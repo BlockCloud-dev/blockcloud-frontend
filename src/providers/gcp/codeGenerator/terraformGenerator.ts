@@ -38,14 +38,29 @@ export class GCPTerraformGenerator {
       code += this.generateFirewallRuleCode(fw, vpcNetworks);
     });
 
-    // Persistent Disks 생성
+    // Persistent Disks 생성 (부트디스크로 사용되지 않는 것만)
     const persistentDisks = blocks.filter((block) => block.type === "gcp-persistent-disk");
+    const computeEngines = blocks.filter((block) => block.type === "gcp-compute-engine");
+
     persistentDisks.forEach((disk) => {
-      code += this.generatePersistentDiskCode(disk);
+      // 이 Disk가 부트디스크로 사용되는지 확인
+      const isBootDisk = connections.some(conn => {
+        const isDiskConnection = (
+          (conn.fromBlockId === disk.id || conn.toBlockId === disk.id) &&
+          computeEngines.some(vm => vm.id === conn.fromBlockId || vm.id === conn.toBlockId)
+        );
+        return isDiskConnection &&
+          conn.properties?.stackConnection === true &&
+          conn.properties?.volumeType === 'boot';
+      });
+
+      // 부트디스크가 아닌 경우만 별도 리소스 생성
+      if (!isBootDisk) {
+        code += this.generatePersistentDiskCode(disk);
+      }
     });
 
     // Compute Engine 인스턴스 생성
-    const computeEngines = blocks.filter((block) => block.type === "gcp-compute-engine");
     computeEngines.forEach((vm) => {
       code += this.generateComputeEngineCode(vm, subnets, persistentDisks, connections);
     });
@@ -265,7 +280,7 @@ resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
         (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
       );
       return diskConnection?.properties?.stackConnection === true &&
-             diskConnection?.properties?.volumeType === 'boot';
+        diskConnection?.properties?.volumeType === 'boot';
     });
 
     let code = `# Compute Engine: ${name}
@@ -359,7 +374,7 @@ resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
 
       // 스태킹 연결인지 확인 (부트 디스크)
       const isBootDisk = diskConnection.properties?.stackConnection === true &&
-                        diskConnection.properties?.volumeType === 'boot';
+        diskConnection.properties?.volumeType === 'boot';
 
       // 부트디스크가 아니고 Road 연결인 경우만 attachment 생성
       if (!isBootDisk) {
