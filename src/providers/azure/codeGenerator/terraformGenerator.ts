@@ -279,6 +279,16 @@ resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
       `azurerm_subnet.${this.sanitizeResourceName(subnets[0].id)}.id` :
       '"subnet-id"';
 
+    // OS디스크 찾기 (스태킹된 Managed Disk)
+    const osDisk = managedDisks.find((disk) => {
+      const diskConnection = connections.find(conn =>
+        (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
+        (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
+      );
+      return diskConnection?.properties?.stackConnection === true &&
+             diskConnection?.properties?.volumeType === 'boot';
+    });
+
     let code = `# Public IP for VM: ${name}
 resource "azurerm_public_ip" "${this.sanitizeResourceName(vm.id)}_pip" {
   name                = "${name}-pip"
@@ -328,12 +338,32 @@ resource "azurerm_linux_virtual_machine" "${this.sanitizeResourceName(vm.id)}" {
     public_key = file("~/.ssh/id_rsa.pub")  # SSH 키 경로 수정 필요
   }
 
+`;
+
+    // OS 디스크 설정
+    if (osDisk) {
+      const storageAccountType = osDisk.properties.storageAccountType || "Standard_LRS";
+      const diskSizeGb = osDisk.properties.diskSizeGb || 30;
+      code += `  # OS 디스크 설정 (스태킹: ${osDisk.properties.name || osDisk.name})
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "${storageAccountType}"
+    disk_size_gb         = ${diskSizeGb}
+  }
+
+`;
+    } else {
+      // OS디스크가 지정되지 않은 경우 기본값 사용
+      code += `  # OS 디스크 설정 (기본값)
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
 
-  source_image_reference {
+`;
+    }
+
+    code += `  source_image_reference {
     publisher = "${storageImageReference.publisher}"
     offer     = "${storageImageReference.offer}"
     sku       = "${storageImageReference.sku}"
@@ -360,21 +390,26 @@ resource "azurerm_network_interface_security_group_association" "${this.sanitize
 `;
     }
 
-    // 추가 디스크 연결 - OS디스크와 데이터디스크 구분
+    // 추가 디스크 연결 (Road 연결만 - 스태킹도 아니고 연결도 없으면 무시)
     managedDisks.forEach((disk) => {
       // 이 VM과 Disk 사이의 연결 찾기
-      const diskConnection = connections.find(conn => 
+      const diskConnection = connections.find(conn =>
         (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
         (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
       );
 
-      // 스태킹 연결인지 확인 (OS 디스크)
-      const isOSDisk = diskConnection?.properties?.stackConnection === true &&
-                      diskConnection?.properties?.volumeType === 'boot';
+      // 연결이 없으면 무시 (별개의 관계)
+      if (!diskConnection) {
+        return;
+      }
 
-      // OS디스크가 아닌 경우에만 data_disk_attachment 생성 (데이터 디스크)
-      if (!isOSDisk && diskConnection) {
-        code += `# Disk Attachment (데이터 디스크): ${disk.name} → ${vm.name}
+      // 스태킹 연결인지 확인 (OS 디스크)
+      const isOSDisk = diskConnection.properties?.stackConnection === true &&
+                      diskConnection.properties?.volumeType === 'boot';
+
+      // OS디스크가 아니고 Road 연결인 경우만 attachment 생성
+      if (!isOSDisk) {
+        code += `# Disk Attachment (데이터 디스크 - Road 연결): ${disk.name} → ${vm.name}
 resource "azurerm_virtual_machine_data_disk_attachment" "${this.sanitizeResourceName(vm.id)}_${this.sanitizeResourceName(disk.id)}" {
   managed_disk_id    = azurerm_managed_disk.${this.sanitizeResourceName(disk.id)}.id
   virtual_machine_id = azurerm_linux_virtual_machine.${this.sanitizeResourceName(vm.id)}.id

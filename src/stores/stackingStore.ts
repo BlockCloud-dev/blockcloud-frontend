@@ -63,9 +63,7 @@ const STACKING_RULES: StackingRule[] = [
   { childType: 'aws-subnet', parentType: 'aws-vpc', connectionType: 'vpc-subnet' },
   { childType: 'aws-ec2', parentType: 'aws-subnet', connectionType: 'subnet-compute' },
   { childType: 'aws-ec2', parentType: 'aws-volume', connectionType: 'volume-compute-boot', isBootVolume: true },
-  { childType: 'aws-ec2', parentType: 'aws-ebs', connectionType: 'volume-compute-boot', isBootVolume: true },
   { childType: 'aws-volume', parentType: 'aws-subnet', connectionType: 'subnet-volume' },
-  { childType: 'aws-ebs', parentType: 'aws-subnet', connectionType: 'subnet-volume' },
   { childType: 'aws-security-group', parentType: 'aws-vpc', connectionType: 'vpc-security-group' },
   { childType: 'aws-security-group', parentType: 'aws-subnet', connectionType: 'subnet-security-group' },
   { childType: 'aws-load-balancer', parentType: 'aws-subnet', connectionType: 'subnet-load-balancer' },
@@ -168,23 +166,24 @@ export const useStackingStore = create<StackingStoreState>()(
         Math.pow(childBlock.position.z - parentBlock.position.z, 2)
       );
 
-      // 부트볼륨 관련 스태킹은 매우 엄격하게 (AWS EC2-Volume, GCP Compute-Disk, Azure VM-Disk)
+      // 부트볼륨 관련 스태킹 (Compute가 Volume 위에 올라가는 경우만)
       let maxStackingDistance: number;
       const isComputeVolumeStacking = (
-        // AWS: EC2 - EBS Volume
+        // AWS: EC2가 Volume 위에
         (childBlock.type === 'aws-ec2' && parentBlock.type === 'aws-volume') ||
-        (parentBlock.type === 'aws-ec2' && childBlock.type === 'aws-volume') ||
-        // GCP: Compute Engine - Persistent Disk
+        // GCP: Compute Engine이 Persistent Disk 위에
         (childBlock.type === 'gcp-compute-engine' && parentBlock.type === 'gcp-persistent-disk') ||
-        (parentBlock.type === 'gcp-compute-engine' && childBlock.type === 'gcp-persistent-disk') ||
-        // Azure: Virtual Machine - Managed Disk
-        (childBlock.type === 'azure-virtual-machine' && parentBlock.type === 'azure-managed-disk') ||
-        (parentBlock.type === 'azure-virtual-machine' && childBlock.type === 'azure-managed-disk')
+        // Azure: Virtual Machine이 Managed Disk 위에
+        (childBlock.type === 'azure-virtual-machine' && parentBlock.type === 'azure-managed-disk')
       );
 
       if (isComputeVolumeStacking) {
-        // 부트볼륨 연결은 매우 가까워야 함 (최대 1.0 거리까지만)
-        maxStackingDistance = 1.0;
+        // 부트볼륨 연결은 블록 크기에 비례하게 설정 (더 유연하게)
+        maxStackingDistance = Math.max(
+          (parentBlock.size?.[0] || 1) * 1.5,
+          (parentBlock.size?.[2] || 1) * 1.5,
+          2.0 // 최소 2.0
+        );
       } else {
         // 기본 스태킹은 블록 크기 기반
         maxStackingDistance = Math.max(
@@ -207,8 +206,9 @@ export const useStackingStore = create<StackingStoreState>()(
 
       let isProperHeight: boolean;
       if (isBootVolumeCase) {
-        // 부트볼륨은 실제로 위에 스택되어야 함 (Y축 차이 0.1~2.0 범위)
-        isProperHeight = yDiff > 0.1 && yDiff < 2.0 && childBlock.position.y > parentBlock.position.y;
+        // 부트볼륨은 실제로 위에 스택되어야 함 (Y축 차이 0.05~3.0 범위로 확대)
+        // childBlock(EC2)가 parentBlock(Volume) 위에 있어야 함
+        isProperHeight = yDiff > 0.05 && yDiff < 3.0 && childBlock.position.y > parentBlock.position.y;
       } else {
         // 기본 스태킹은 기존 방식
         isProperHeight = yDiff > 0.05 && yDiff < 5.0;
@@ -221,11 +221,11 @@ export const useStackingStore = create<StackingStoreState>()(
         childHigher: childBlock.position.y > parentBlock.position.y
       });
 
-      // 4. 최종 검증 - 부트볼륨은 겹침 + 거리 + Y축 모두 만족해야 함
+      // 4. 최종 검증 - 부트볼륨도 기본 스태킹과 동일하게
       let result: boolean;
       if (isBootVolumeCase) {
-        // 부트볼륨: 겹침 AND 거리 AND Y축 모두 만족
-        result = xOverlap && zOverlap && isWithinRange && isProperHeight;
+        // 부트볼륨: (겹침 AND Y축) OR (거리 AND Y축) - 더 유연하게
+        result = ((xOverlap && zOverlap) || isWithinRange) && isProperHeight;
       } else {
         // 기본 스태킹: 겹침 OR (거리 AND Y축)
         result = (xOverlap && zOverlap) || (isWithinRange && isProperHeight);

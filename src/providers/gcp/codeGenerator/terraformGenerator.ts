@@ -252,16 +252,21 @@ resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
     const name = vm.properties.name || vm.name;
     const machineType = vm.properties.machineType || "e2-micro";
     const zone = vm.properties.zone || "asia-northeast3-a";
-    const bootDisk = vm.properties.bootDisk || {
-      image: "ubuntu-2004-lts",
-      size: 20,
-      type: "pd-standard"
-    };
     const networkTags = vm.properties.networkTags || [];
 
     const subnetRef = subnets.length > 0 ?
       `google_compute_subnetwork.${this.sanitizeResourceName(subnets[0].id)}.id` :
       '"default"';
+
+    // 부트디스크 찾기 (스태킹된 Persistent Disk)
+    const bootDisk = persistentDisks.find((disk) => {
+      const diskConnection = connections.find(conn =>
+        (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
+        (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
+      );
+      return diskConnection?.properties?.stackConnection === true &&
+             diskConnection?.properties?.volumeType === 'boot';
+    });
 
     let code = `# Compute Engine: ${name}
 resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
@@ -269,16 +274,38 @@ resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
   machine_type = "${machineType}"
   zone         = "${zone}"
 
-  # 부트 디스크 설정
+`;
+
+    // 부트 디스크 설정
+    if (bootDisk) {
+      const diskType = bootDisk.properties.type || "pd-standard";
+      const diskSize = bootDisk.properties.size || 20;
+      code += `  # 부트 디스크 설정 (스태킹: ${bootDisk.properties.name || bootDisk.name})
   boot_disk {
     initialize_params {
-      image = "${bootDisk.image}"
-      size  = ${bootDisk.size}
-      type  = "${bootDisk.type}"
+      image = "ubuntu-2004-lts"
+      size  = ${diskSize}
+      type  = "${diskType}"
     }
   }
 
-  # 네트워크 인터페이스
+`;
+    } else {
+      // 부트디스크가 지정되지 않은 경우 기본값 사용
+      code += `  # 부트 디스크 설정 (기본값)
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-2004-lts"
+      size  = 20
+      type  = "pd-standard"
+    }
+  }
+
+`;
+    }
+
+    // 네트워크 인터페이스
+    code += `  # 네트워크 인터페이스
   network_interface {
     subnetwork = ${subnetRef}
     
@@ -317,21 +344,26 @@ resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {
 
 `;
 
-    // 추가 디스크 연결 - 부트디스크와 추가디스크 구분
+    // 추가 디스크 연결 (Road 연결만 - 스태킹도 아니고 연결도 없으면 무시)
     persistentDisks.forEach((disk) => {
       // 이 VM과 Disk 사이의 연결 찾기
-      const diskConnection = connections.find(conn => 
+      const diskConnection = connections.find(conn =>
         (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
         (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
       );
 
-      // 스태킹 연결인지 확인 (부트 디스크)
-      const isBootDisk = diskConnection?.properties?.stackConnection === true &&
-                        diskConnection?.properties?.volumeType === 'boot';
+      // 연결이 없으면 무시 (별개의 관계)
+      if (!diskConnection) {
+        return;
+      }
 
-      // 부트디스크가 아닌 경우에만 attached_disk 생성 (추가 디스크)
-      if (!isBootDisk && diskConnection) {
-        code += `# Disk Attachment (추가 디스크): ${disk.name} → ${vm.name}
+      // 스태킹 연결인지 확인 (부트 디스크)
+      const isBootDisk = diskConnection.properties?.stackConnection === true &&
+                        diskConnection.properties?.volumeType === 'boot';
+
+      // 부트디스크가 아니고 Road 연결인 경우만 attachment 생성
+      if (!isBootDisk) {
+        code += `# Disk Attachment (추가 디스크 - Road 연결): ${disk.name} → ${vm.name}
 resource "google_compute_attached_disk" "${this.sanitizeResourceName(vm.id)}_${this.sanitizeResourceName(disk.id)}" {
   disk     = google_compute_disk.${this.sanitizeResourceName(disk.id)}.id
   instance = google_compute_instance.${this.sanitizeResourceName(vm.id)}.id

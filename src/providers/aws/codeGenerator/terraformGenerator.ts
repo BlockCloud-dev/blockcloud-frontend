@@ -234,6 +234,16 @@ resource "aws_ebs_volume" "${this.sanitizeResourceName(volume.id)}" {
       `aws_subnet.${this.sanitizeResourceName(subnets[0].id)}.id` :
       '"subnet-xxxxxx"';
 
+    // 부트볼륨 찾기 (스태킹된 Volume)
+    const bootVolume = volumes.find((volume) => {
+      const volumeConnection = connections.find(conn =>
+        (conn.fromBlockId === ec2.id && conn.toBlockId === volume.id) ||
+        (conn.fromBlockId === volume.id && conn.toBlockId === ec2.id)
+      );
+      return volumeConnection?.properties?.stackConnection === true &&
+             volumeConnection?.properties?.volumeType === 'boot';
+    });
+
     let code = `# EC2 Instance: ${ec2.properties.name || ec2.name}
 resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {
   ami           = "${ami}"
@@ -241,6 +251,20 @@ resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {
   subnet_id     = ${subnetRef}
 
 `;
+
+    // 부트볼륨이 있는 경우 root_block_device 설정
+    if (bootVolume) {
+      const volumeSize = bootVolume.properties.volumeSize || 20;
+      const volumeType = bootVolume.properties.volumeType || "gp3";
+      code += `  # 부트볼륨 설정 (스태킹: ${bootVolume.properties.name || bootVolume.name})
+  root_block_device {
+    volume_size = ${volumeSize}
+    volume_type = "${volumeType}"
+    delete_on_termination = true
+  }
+
+`;
+    }
 
     // Security Groups 연결
     if (securityGroups.length > 0) {
@@ -260,21 +284,26 @@ resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {
 
 `;
 
-    // EBS Volume 연결 - 부트볼륨과 추가볼륨 구분
+    // 추가 EBS Volume 연결 (Road 연결만 - 스태킹도 아니고 연결도 없으면 무시)
     volumes.forEach((volume) => {
       // 이 EC2와 Volume 사이의 연결 찾기
-      const volumeConnection = connections.find(conn => 
+      const volumeConnection = connections.find(conn =>
         (conn.fromBlockId === ec2.id && conn.toBlockId === volume.id) ||
         (conn.fromBlockId === volume.id && conn.toBlockId === ec2.id)
       );
 
-      // 스태킹 연결인지 확인 (부트볼륨)
-      const isBootVolume = volumeConnection?.properties?.stackConnection === true &&
-                          volumeConnection?.properties?.volumeType === 'boot';
+      // 연결이 없으면 무시 (별개의 관계)
+      if (!volumeConnection) {
+        return;
+      }
 
-      // 부트볼륨이 아닌 경우에만 volume_attachment 생성 (추가 볼륨)
-      if (!isBootVolume && volumeConnection) {
-        code += `# EBS Volume Attachment (추가 볼륨): ${volume.name} → ${ec2.name}
+      // 스태킹 연결인지 확인 (부트볼륨)
+      const isBootVolume = volumeConnection.properties?.stackConnection === true &&
+                          volumeConnection.properties?.volumeType === 'boot';
+
+      // 부트볼륨이 아니고 Road 연결인 경우만 attachment 생성
+      if (!isBootVolume) {
+        code += `# EBS Volume Attachment (추가 볼륨 - Road 연결): ${volume.name} → ${ec2.name}
 resource "aws_volume_attachment" "${this.sanitizeResourceName(ec2.id)}_${this.sanitizeResourceName(volume.id)}" {
   device_name = "/dev/sdf"
   volume_id   = aws_ebs_volume.${this.sanitizeResourceName(volume.id)}.id
