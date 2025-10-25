@@ -7,7 +7,7 @@ import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import LoginSuccessPage from "../pages/LoginSuccessPage";
 import DashboardPage from "../pages/DashboardPage";
-import ProjectEditorPage from "../pages/ProjectEditorPage";
+import NewProjectEditorPage from "../pages/NewProjectEditorPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import DeployStatusPage from "../pages/DeployStatusPage";
 
@@ -50,7 +50,7 @@ export const router = createBrowserRouter([
     path: ROUTES.PROJECT_EDITOR,
     element: (
       <ProtectedRoute>
-        <ProjectEditorPage />
+        <NewProjectEditorPage />
       </ProtectedRoute>
     ),
   },
