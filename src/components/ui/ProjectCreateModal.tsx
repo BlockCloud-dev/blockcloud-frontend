@@ -1,8 +1,9 @@
 // src/components/modal/CreateProjectModal.tsx
 import React, { useState } from "react";
 import { createProject } from "../../services/projectService";
-import { useNavigate } from "react-router-dom"; // ✅ 추가
-import { PROVIDER_INFO, CloudProviderType } from "../../providers";
+import { useNavigate } from "react-router-dom";
+import { PROVIDER_INFO, CloudProviderType, providerManager } from "../../providers";
+import { useProjectStore } from "../../stores/projectStore";
 
 interface Props {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const CreateProjectModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
 
   if (!isOpen) return null;
 
@@ -42,7 +44,24 @@ const CreateProjectModal: React.FC<Props> = ({
       setLoading(true);
       setError(null);
       try {
+        // 1. 프로젝트 생성 (name, description만 전달)
         const project = await createProject(name, description);
+
+        // 2. 선택한 프로바이더를 프론트엔드 상태에 설정
+        // CloudProviderType enum을 문자열로 변환
+        let cspString: "AWS" | "GCP" | "Azure" = "AWS";
+        if (selectedProvider === CloudProviderType.AWS) {
+          cspString = "AWS";
+        } else if (selectedProvider === CloudProviderType.GCP) {
+          cspString = "GCP";
+        } else if (selectedProvider === CloudProviderType.AZURE) {
+          cspString = "Azure";
+        }
+
+        setCurrentCSP(cspString);
+        providerManager.setCurrentProvider(selectedProvider);
+
+        // 3. 프로젝트 에디터 페이지로 이동
         navigate(`/project/${project.id}`);
         onClose();
       } catch (err) {

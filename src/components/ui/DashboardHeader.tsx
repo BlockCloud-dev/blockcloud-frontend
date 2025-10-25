@@ -34,7 +34,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   const handleCreateSubmit = async (name: string, description: string, provider?: any): Promise<void> => {
     try {
-      const newProject = await projectService.createProject(name, description, provider);
+      // provider는 모달 내부에서 처리하므로 여기서는 name, description만 전달
+      const newProject = await projectService.createProject(name, description);
       // 성공 후 처리 로직
       console.log("프로젝트 생성 성공:", newProject);
       console.log("선택된 프로바이더:", provider);
@@ -93,8 +94,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               onClick={handleLogout}
               disabled={isLoggingOut}
               className={`inline-flex items-center px-4 py-2 font-medium rounded-lg transition ${isLoggingOut
-                  ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                  : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
             >
               {isLoggingOut ? "로그아웃 중…" : "로그아웃"}

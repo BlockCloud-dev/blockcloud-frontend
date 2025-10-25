@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
 import { apiFetch } from '../utils/apiClients';
-import { useResetAllStores } from '../stores';
+import { useResetAllStores, useConnectionStore, useProjectStore } from '../stores';
 
 export const useProjectManagement = (projectId: string | undefined, droppedBlocks: any[]) => {
   const resetAllStores = useResetAllStores();
+  const connections = useConnectionStore((state) => state.connections);
+  const currentCSP = useProjectStore((state) => state.currentCSP);
 
   // 새 프로젝트
   const handleNewProject = useCallback(() => {
@@ -11,7 +13,7 @@ export const useProjectManagement = (projectId: string | undefined, droppedBlock
     console.log('🆕 New project created');
   }, [resetAllStores]);
 
-  // 프로젝트 저장
+  // 프로젝트 저장 (서버)
   const handleSaveProject = useCallback(async () => {
     if (!projectId) {
       alert('URL에서 projectId를 찾을 수 없습니다.');
@@ -26,7 +28,11 @@ export const useProjectManagement = (projectId: string | undefined, droppedBlock
     try {
       await apiFetch(`/api/block/${projectId}`, {
         method: 'POST',
-        body: JSON.stringify({ blocks: droppedBlocks }),
+        body: JSON.stringify({
+          blocks: droppedBlocks,
+          connections: connections,
+          provider: currentCSP || 'AWS',
+        }),
       });
 
       alert('✅ 프로젝트가 성공적으로 저장되었습니다.');
@@ -34,7 +40,7 @@ export const useProjectManagement = (projectId: string | undefined, droppedBlock
       console.error('❌ 저장 실패:', err);
       alert('❌ 저장 중 오류가 발생했습니다.');
     }
-  }, [projectId, droppedBlocks]);
+  }, [projectId, droppedBlocks, connections, currentCSP]);
 
   return {
     handleNewProject,
