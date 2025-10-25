@@ -7,7 +7,7 @@ on:
       - panel-UI
 
 env:
-  NCP_REGISTRY: registry.ncloud.com
+  NCP_REGISTRY: cr.ncloud.com
   NCR_REPO: blockcloud 
   APP_NAME: frontend-app
   IMAGE_TAG: ${{ github.sha }}
