@@ -269,19 +269,58 @@ resource "google_compute_disk" "${this.sanitizeResourceName(disk.id)}" {
     const zone = vm.properties.zone || "asia-northeast3-a";
     const networkTags = vm.properties.networkTags || [];
 
-    const subnetRef = subnets.length > 0 ?
-      `google_compute_subnetwork.${this.sanitizeResourceName(subnets[0].id)}.id` :
-      '"default"';
+    // VM-Subnet 연결 찾기 (스태킹 관계)
+    const subnetConnection = connections.find(conn =>
+      (conn.fromBlockId === vm.id || conn.toBlockId === vm.id) &&
+      conn.properties?.stackConnection === true &&
+      subnets.some(s => s.id === conn.fromBlockId || s.id === conn.toBlockId)
+    );
+
+    let subnetRef = '"default"';
+    if (subnetConnection) {
+      // 연결된 Subnet ID 찾기
+      const connectedSubnetId = subnetConnection.fromBlockId === vm.id
+        ? subnetConnection.toBlockId
+        : subnetConnection.fromBlockId;
+      const connectedSubnet = subnets.find(s => s.id === connectedSubnetId);
+
+      if (connectedSubnet) {
+        subnetRef = `google_compute_subnetwork.${this.sanitizeResourceName(connectedSubnet.id)}.id`;
+        console.log(`[GCP CodeGen] VM ${vm.id.substring(0, 8)} → Subnet ${connectedSubnet.id.substring(0, 8)}`);
+      }
+    } else if (subnets.length > 0) {
+      // 연결이 없으면 첫 번째 Subnet 사용 (fallback)
+      subnetRef = `google_compute_subnetwork.${this.sanitizeResourceName(subnets[0].id)}.id`;
+      console.warn(`[GCP CodeGen] No subnet connection found for VM ${vm.id.substring(0, 8)}, using first subnet`);
+    }
 
     // 부트디스크 찾기 (스태킹된 Persistent Disk)
+    console.log(`[GCP CodeGen] VM ${vm.id.substring(0, 8)} - 부트디스크 검색 중...`);
+    console.log(`[GCP CodeGen] 전체 연결 수: ${connections.length}, Disk 수: ${persistentDisks.length}`);
+
     const bootDisk = persistentDisks.find((disk) => {
       const diskConnection = connections.find(conn =>
         (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
         (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
       );
+
+      if (diskConnection) {
+        console.log(`[GCP CodeGen] Disk ${disk.id.substring(0, 8)} 연결 발견:`, {
+          stackConnection: diskConnection.properties?.stackConnection,
+          volumeType: diskConnection.properties?.volumeType,
+          fromTo: `${diskConnection.fromBlockId.substring(0, 8)} → ${diskConnection.toBlockId.substring(0, 8)}`
+        });
+      }
+
       return diskConnection?.properties?.stackConnection === true &&
         diskConnection?.properties?.volumeType === 'boot';
     });
+
+    if (bootDisk) {
+      console.log(`✅ [GCP CodeGen] 부트디스크 찾음: ${bootDisk.id.substring(0, 8)} (${bootDisk.properties.name})`);
+    } else {
+      console.log(`❌ [GCP CodeGen] 부트디스크 없음`);
+    }
 
     let code = `# Compute Engine: ${name}
 resource "google_compute_instance" "${this.sanitizeResourceName(vm.id)}" {

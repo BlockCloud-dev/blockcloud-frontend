@@ -290,19 +290,58 @@ resource "azurerm_managed_disk" "${this.sanitizeResourceName(disk.id)}" {
       version: "latest"
     };
 
-    const subnetRef = subnets.length > 0 ?
-      `azurerm_subnet.${this.sanitizeResourceName(subnets[0].id)}.id` :
-      '"subnet-id"';
+    // VM-Subnet 연결 찾기 (스태킹 관계)
+    const subnetConnection = connections.find(conn =>
+      (conn.fromBlockId === vm.id || conn.toBlockId === vm.id) &&
+      conn.properties?.stackConnection === true &&
+      subnets.some(s => s.id === conn.fromBlockId || s.id === conn.toBlockId)
+    );
+
+    let subnetRef = '"subnet-id"';
+    if (subnetConnection) {
+      // 연결된 Subnet ID 찾기
+      const connectedSubnetId = subnetConnection.fromBlockId === vm.id
+        ? subnetConnection.toBlockId
+        : subnetConnection.fromBlockId;
+      const connectedSubnet = subnets.find(s => s.id === connectedSubnetId);
+
+      if (connectedSubnet) {
+        subnetRef = `azurerm_subnet.${this.sanitizeResourceName(connectedSubnet.id)}.id`;
+        console.log(`[Azure CodeGen] VM ${vm.id.substring(0, 8)} → Subnet ${connectedSubnet.id.substring(0, 8)}`);
+      }
+    } else if (subnets.length > 0) {
+      // 연결이 없으면 첫 번째 Subnet 사용 (fallback)
+      subnetRef = `azurerm_subnet.${this.sanitizeResourceName(subnets[0].id)}.id`;
+      console.warn(`[Azure CodeGen] No subnet connection found for VM ${vm.id.substring(0, 8)}, using first subnet`);
+    }
 
     // OS디스크 찾기 (스태킹된 Managed Disk)
+    console.log(`[Azure CodeGen] VM ${vm.id.substring(0, 8)} - OS디스크 검색 중...`);
+    console.log(`[Azure CodeGen] 전체 연결 수: ${connections.length}, Disk 수: ${managedDisks.length}`);
+
     const osDisk = managedDisks.find((disk) => {
       const diskConnection = connections.find(conn =>
         (conn.fromBlockId === vm.id && conn.toBlockId === disk.id) ||
         (conn.fromBlockId === disk.id && conn.toBlockId === vm.id)
       );
+
+      if (diskConnection) {
+        console.log(`[Azure CodeGen] Disk ${disk.id.substring(0, 8)} 연결 발견:`, {
+          stackConnection: diskConnection.properties?.stackConnection,
+          volumeType: diskConnection.properties?.volumeType,
+          fromTo: `${diskConnection.fromBlockId.substring(0, 8)} → ${diskConnection.toBlockId.substring(0, 8)}`
+        });
+      }
+
       return diskConnection?.properties?.stackConnection === true &&
         diskConnection?.properties?.volumeType === 'boot';
     });
+
+    if (osDisk) {
+      console.log(`✅ [Azure CodeGen] OS디스크 찾음: ${osDisk.id.substring(0, 8)} (${osDisk.properties.name})`);
+    } else {
+      console.log(`❌ [Azure CodeGen] OS디스크 없음`);
+    }
 
     let code = `# Public IP for VM: ${name}
 resource "azurerm_public_ip" "${this.sanitizeResourceName(vm.id)}_pip" {

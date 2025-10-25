@@ -299,11 +299,11 @@ export const useStackingStore = create<StackingStoreState>()(
 
       // 기존 자식 블록 상태 가져오기
       const existingChildState = stackingStates.get(childId);
-      
+
       // 자식 블록 스태킹 상태 업데이트 (여러 부모 지원)
       const childStackingState: StackingState = {
         isStacked: true,
-        parentBlockIds: existingChildState 
+        parentBlockIds: existingChildState
           ? [...new Set([...existingChildState.parentBlockIds, parentId])]  // 중복 제거하며 추가
           : [parentId],
         childBlockIds: existingChildState?.childBlockIds || [],
