@@ -80,6 +80,12 @@ export function getStackingHint(blockType: string): string {
   return STACKING_HINTS[blockType] || "적절한 블록 위에만";
 }
 
+// 블록이 반드시 부모를 가져야 하는지 확인 (VPC/Virtual Network 제외)
+export function requiresParent(blockType: string): boolean {
+  const allowedParents = STACKING_RULES[blockType] || [];
+  return allowedParents.length > 0;
+}
+
 // 블록 위에 스택된 블록들 찾기
 export function getStackedBlocks(targetBlockId: string, allBlocks: any[]): any[] {
   const targetBlock = allBlocks.find(b => b.id === targetBlockId);

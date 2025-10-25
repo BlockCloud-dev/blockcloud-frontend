@@ -11,7 +11,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { ResizablePanel } from "../components/ui/ResizablePanel";
 import MainHeader from "../components/ui/MainHeader";
 import toast from "react-hot-toast";
-import { getStackingHint, canDeleteBlockWithStore, getStackedBlocks } from "../utils/stackingRules";
+import { getStackingHint, canDeleteBlockWithStore, getStackedBlocks, requiresParent } from "../utils/stackingRules";
 import { providerManager, CloudProviderType } from "../providers";
 
 // Zustand 스토어들
@@ -258,8 +258,9 @@ function ProjectEditorPage() {
         const ec2Area = ec2SizeX * ec2SizeZ;
         const overlapRatio = ec2Area > 0 ? overlapArea / ec2Area : 0;
 
-        // Y축 검증
+        // Y축 검증 + 스태킹 규칙 검증 (VPC 위에 EC2 올라가는 것 방지)
         const yValid = validateStacking(newBlock, subnet);
+        const stackingRuleValid = canStack(newBlock.type, subnet.type);
 
         console.log(`🎯 [NewStacking] Subnet 겹침 분석: ${subnet.type}`, {
           subnetId: subnet.id.substring(0, 8),
@@ -268,15 +269,16 @@ function ProjectEditorPage() {
           xOverlap: xOverlap.toFixed(2),
           zOverlap: zOverlap.toFixed(2),
           overlapRatio: (overlapRatio * 100).toFixed(1) + '%',
-          yValid
+          yValid,
+          stackingRuleValid: stackingRuleValid ? '✅' : '❌ (VPC 등 잘못된 타입)'
         });
 
-        return { subnet, overlapRatio, yValid };
+        return { subnet, overlapRatio, yValid, stackingRuleValid };
       });
 
-      // 겹침 면적이 30% 이상이고 Y축 검증 통과한 Subnet 필터링
+      // 겹침 면적이 30% 이상이고 Y축 검증 + 스태킹 규칙 모두 통과한 Subnet 필터링
       const validSubnets = subnetOverlapData
-        .filter(data => data.overlapRatio >= 0.3 && data.yValid)
+        .filter(data => data.overlapRatio >= 0.3 && data.yValid && data.stackingRuleValid)
         .sort((a, b) => b.overlapRatio - a.overlapRatio);
 
       console.log("✅ [NewStacking] 최종 스태킹 타겟:", {
@@ -439,11 +441,11 @@ function ProjectEditorPage() {
     );
   };
 
-  // 블록 이동 시 스태킹 업데이트
+  // 블록 이동 시 스태킹 업데이트 (검증 실패 시 false 반환)
   const handleStackingForMovedBlock = (
     blockId: string,
     allBlocks: DroppedBlock[]
-  ) => {
+  ): boolean => {
     console.log(
       "🔄🔄🔄 [NewStacking] ===== 이동된 블록 스태킹 업데이트 시작 ====="
     );
@@ -458,38 +460,62 @@ function ProjectEditorPage() {
     const movedBlock = allBlocks.find((block) => block.id === blockId);
     console.log("🔍 [NewStacking] 이동된 블록 찾기:", !!movedBlock);
 
-    if (movedBlock) {
-      console.log("🎯 [NewStacking] 새로운 스태킹 처리 호출");
-      handleStackingForNewBlock(movedBlock, allBlocks);
-
-      // 즉시 연결 업데이트
-      console.log("🔗 [NewStacking] 연결 업데이트 시작");
-      const derivedConnections = deriveConnectionsFromStacking(allBlocks);
-      console.log(
-        "🔗 [NewStacking] 파생된 연결 수:",
-        derivedConnections.length
-      );
-
-      const nonStackingConnections = connections.filter(
-        (conn) => !conn.properties?.stackConnection
-      );
-      console.log(
-        "🔗 [NewStacking] 비스태킹 연결 수:",
-        nonStackingConnections.length
-      );
-
-      const allConnections = [...nonStackingConnections, ...derivedConnections];
-      console.log("🔗 [NewStacking] 총 연결 수:", allConnections.length);
-
-      setConnections(allConnections);
-
-      console.log("✅ [NewStacking] 이동 후 연결 업데이트 완료");
-    } else {
+    if (!movedBlock) {
       console.log("❌ [NewStacking] 이동된 블록을 찾을 수 없음");
+      return false;
     }
+
+    // 규칙 기반 검증: VPC/Virtual Network 같은 Foundation 블록은 부모가 필요없음
+    const needsParent = requiresParent(movedBlock.type);
+
+    if (!needsParent) {
+      console.log("✅ [NewStacking] Foundation 블록 (VPC/Virtual Network) - 스태킹 검증 생략");
+      return true;
+    }
+
+    console.log("🎯 [NewStacking] 새로운 스태킹 처리 호출");
+    handleStackingForNewBlock(movedBlock, allBlocks);
+
+    // 즉시 연결 업데이트
+    console.log("🔗 [NewStacking] 연결 업데이트 시작");
+    const derivedConnections = deriveConnectionsFromStacking(allBlocks);
+    console.log(
+      "🔗 [NewStacking] 파생된 연결 수:",
+      derivedConnections.length
+    );
+
+    // 규칙 기반 검증: 부모가 필요한 블록은 반드시 연결이 있어야 함
+    if (needsParent) {
+      const hasValidConnection = derivedConnections.some(conn =>
+        conn.fromBlockId === blockId || conn.toBlockId === blockId
+      );
+
+      if (!hasValidConnection) {
+        console.log(`❌ [NewStacking] ${movedBlock.type} 블록이 필수 부모에 연결되지 않음 - 이동 실패`);
+        console.log(`   필수: ${getStackingHint(movedBlock.type)}`);
+        return false;
+      }
+      console.log(`✅ [NewStacking] ${movedBlock.type} 블록이 올바른 부모에 연결됨`);
+    }
+
+    const nonStackingConnections = connections.filter(
+      (conn) => !conn.properties?.stackConnection
+    );
+    console.log(
+      "🔗 [NewStacking] 비스태킹 연결 수:",
+      nonStackingConnections.length
+    );
+
+    const allConnections = [...nonStackingConnections, ...derivedConnections];
+    console.log("🔗 [NewStacking] 총 연결 수:", allConnections.length);
+
+    setConnections(allConnections);
+
+    console.log("✅ [NewStacking] 이동 후 연결 업데이트 완료");
     console.log(
       "🔄🔄🔄 [NewStacking] ===== 이동된 블록 스태킹 업데이트 종료 ====="
     );
+    return true;
   };
 
   // 블록 변경 시 HCL 코드 자동 생성 (연결 정보 포함)
@@ -1169,6 +1195,10 @@ terraform {
       finalPosition
     );
 
+    // 원래 위치 저장 (복원용)
+    const originalPosition = movingBlock.position;
+    console.log("💾 [APP_MOVE] 원래 위치 저장:", originalPosition);
+
     moveBlock(blockId, finalPosition);
 
     // 드래그 종료 시 상태 초기화
@@ -1182,7 +1212,31 @@ terraform {
     );
 
     console.log("🔄 [APP_MOVE] 업데이트된 블록 배열로 스태킹 처리");
-    handleStackingForMovedBlock(blockId, updatedBlocks);
+    const stackingSuccess = handleStackingForMovedBlock(blockId, updatedBlocks);
+
+    // 스태킹 검증 실패 시 원래 위치로 복원
+    if (!stackingSuccess) {
+      console.log("❌ [APP_MOVE] 스태킹 검증 실패 - 원래 위치로 복원");
+      moveBlock(blockId, originalPosition);
+
+      const hint = getStackingHint(movingBlock.type);
+      toast.error(
+        `${movingBlock.type} 블록은 ${hint} 올려야 합니다.\n현재 위치에서는 올바른 연결을 찾을 수 없습니다.`,
+        {
+          id: `stacking-failed-${blockId}`,
+          position: "bottom-center",
+          duration: 4000,
+          style: {
+            whiteSpace: 'pre-line',
+            maxWidth: '400px'
+          }
+        }
+      );
+
+      console.log("🔄 [APP_MOVE] 원래 위치로 복원 완료:", originalPosition);
+      console.log("🎯 [APP_MOVE] ========== BLOCK MOVE REVERTED ==========");
+      return;
+    }
 
     console.log("🔄 [APP_MOVE] Block moved:", blockId, finalPosition);
     console.log("🎯 [APP_MOVE] ========== BLOCK MOVE END ==========");
