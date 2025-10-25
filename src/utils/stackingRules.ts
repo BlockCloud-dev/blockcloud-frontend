@@ -160,16 +160,36 @@ export function canDeleteBlockWithStore(
 } {
   const stackingState = stackingStates.get(blockId);
 
+  console.log('🔍 삭제 검증:', {
+    blockId,
+    stackingState,
+    hasState: !!stackingState,
+    childBlockIds: stackingState?.childBlockIds
+  });
+
   // 스태킹 상태가 없거나 자식이 없으면 삭제 가능
-  if (!stackingState || stackingState.childBlockIds.length === 0) {
+  if (!stackingState || !stackingState.childBlockIds || stackingState.childBlockIds.length === 0) {
+    console.log('✅ 삭제 가능 - 스택된 자식 블록 없음');
     return { canDelete: true };
   }
 
-  // 자식 블록들 찾기
+  // 자식 블록들 찾기 (실제로 존재하는 블록만)
   const childBlocks = stackingState.childBlockIds
     .map((childId: string) => allBlocks.find(b => b.id === childId))
     .filter(Boolean);
 
+  console.log('🔍 자식 블록 검증:', {
+    childIdsInState: stackingState.childBlockIds,
+    actualChildBlocks: childBlocks.map((b: any) => ({ id: b.id, type: b.type }))
+  });
+
+  // 실제 존재하는 자식 블록이 없으면 삭제 가능
+  if (childBlocks.length === 0) {
+    console.log('✅ 삭제 가능 - 자식 블록 ID는 있지만 실제 블록은 존재하지 않음 (stale state)');
+    return { canDelete: true };
+  }
+
+  console.log('❌ 삭제 불가 - 실제 스택된 블록 존재:', childBlocks.length);
   return {
     canDelete: false,
     reason: `이 블록 위에 ${childBlocks.length}개의 블록이 스택되어 있습니다.`,
