@@ -188,109 +188,116 @@ function ProjectEditorPage() {
       forcePosition
     );
 
-    // 스태킹 가능한 대상 찾기
-    const potentialTargets = allBlocks
-      .filter((block) => block.id !== newBlock.id)
-      .filter((block) => canStack(newBlock.type, block.type))
-      .filter((block) => validateStacking(newBlock, block));
+    const isComputeInstance = newBlock.type.includes('ec2') || newBlock.type.includes('compute-engine') || newBlock.type.includes('virtual-machine');
 
-    if (potentialTargets.length > 0) {
-      // Compute 인스턴스의 경우 물리적으로 가까운 대상과만 스태킹 관계 생성
-      const isComputeInstance = newBlock.type.includes('ec2') || newBlock.type.includes('compute-engine') || newBlock.type.includes('virtual-machine');
-      if (isComputeInstance) {
-        console.log(
-          "🔗 [NewStacking] EC2 다중 스태킹 처리:",
-          potentialTargets.map((t) => t.type)
-        );
+    if (isComputeInstance) {
+      // ===== EC2/Compute 전용 로직: 겹침 면적 기반 =====
+      console.log("🔗 [NewStacking] Compute 인스턴스 스태킹 처리");
+      console.log("📍 [NewStacking] EC2 현재 위치:", {
+        x: newBlock.position.x.toFixed(2),
+        y: newBlock.position.y.toFixed(2),
+        z: newBlock.position.z.toFixed(2)
+      });
 
-        // 거리 기반으로 필터링하여 정말 가까운 대상만 선택
-        const closeTargets = potentialTargets.filter((target) => {
-          const distance = Math.sqrt(
-            Math.pow(newBlock.position.x - target.position.x, 2) +
-            Math.pow(newBlock.position.z - target.position.z, 2)
-          );
+      // 1단계: 타입별로 분류
+      const volumes: DroppedBlock[] = [];
+      const subnets: DroppedBlock[] = [];
 
-          // 부트볼륨 연결(Compute-Volume/Disk)은 매우 가까워야 함 (거리 1.5 이하)
-          const isVolumeDisk = target.type.includes('volume') || target.type.includes('ebs') || target.type.includes('disk');
-          if (isVolumeDisk) {
-            const isVeryClose = distance <= 1.5;
-            console.log("🔍 [NewStacking] 부트볼륨 거리 검사:", {
-              target: target.type,
-              distance: distance.toFixed(2),
-              isVeryClose,
-            });
-            return isVeryClose;
-          }
+      allBlocks.forEach(block => {
+        if (block.id === newBlock.id) return;
+        if (!canStack(newBlock.type, block.type)) return;
 
-          // Subnet 연결은 더 관대하게 (거리 5.0 이하)
-          if (target.type.includes('subnet')) {
-            const isClose = distance <= 5.0;
-            console.log("🔍 [NewStacking] Subnet 거리 검사:", {
-              distance: distance.toFixed(2),
-              isClose,
-            });
-            return isClose;
-          }
+        const isVolumeDisk = block.type.includes('volume') || block.type.includes('ebs') || block.type.includes('disk');
+        const isSubnet = block.type.includes('subnet');
 
-          return false;
+        if (isVolumeDisk) volumes.push(block);
+        if (isSubnet) subnets.push(block);
+      });
+
+      console.log("[NewStacking] 타입별 분류:", {
+        volumeCount: volumes.length,
+        subnetCount: subnets.length,
+      });
+
+      // 2단계: Volume/EBS 검증 (validateStacking 사용)
+      const validVolumes = volumes.filter(vol => {
+        const isValid = validateStacking(newBlock, vol);
+        console.log(`[NewStacking] Volume 검증: ${vol.type.substring(0, 10)} - ${isValid ? '✅' : '❌'}`);
+        return isValid;
+      });
+
+      // 3단계: Subnet 검증 - 겹침 면적 기반 선택
+      const subnetOverlapData = subnets.map(subnet => {
+        const ec2SizeX = newBlock.size?.[0] || 1;
+        const ec2SizeZ = newBlock.size?.[2] || 1;
+        const subnetSizeX = subnet.size?.[0] || 3;
+        const subnetSizeZ = subnet.size?.[2] || 3;
+
+        // X축 겹침 계산
+        const ec2Left = newBlock.position.x - ec2SizeX / 2;
+        const ec2Right = newBlock.position.x + ec2SizeX / 2;
+        const subnetLeft = subnet.position.x - subnetSizeX / 2;
+        const subnetRight = subnet.position.x + subnetSizeX / 2;
+
+        const xOverlapStart = Math.max(ec2Left, subnetLeft);
+        const xOverlapEnd = Math.min(ec2Right, subnetRight);
+        const xOverlap = Math.max(0, xOverlapEnd - xOverlapStart);
+
+        // Z축 겹침 계산
+        const ec2Front = newBlock.position.z - ec2SizeZ / 2;
+        const ec2Back = newBlock.position.z + ec2SizeZ / 2;
+        const subnetFront = subnet.position.z - subnetSizeZ / 2;
+        const subnetBack = subnet.position.z + subnetSizeZ / 2;
+
+        const zOverlapStart = Math.max(ec2Front, subnetFront);
+        const zOverlapEnd = Math.min(ec2Back, subnetBack);
+        const zOverlap = Math.max(0, zOverlapEnd - zOverlapStart);
+
+        // 겹침 면적
+        const overlapArea = xOverlap * zOverlap;
+        const ec2Area = ec2SizeX * ec2SizeZ;
+        const overlapRatio = ec2Area > 0 ? overlapArea / ec2Area : 0;
+
+        // Y축 검증
+        const yValid = validateStacking(newBlock, subnet);
+
+        console.log(`🎯 [NewStacking] Subnet 겹침 분석: ${subnet.type}`, {
+          subnetId: subnet.id.substring(0, 8),
+          ec2Pos: `(${newBlock.position.x.toFixed(1)}, ${newBlock.position.z.toFixed(1)})`,
+          subnetPos: `(${subnet.position.x.toFixed(1)}, ${subnet.position.z.toFixed(1)})`,
+          xOverlap: xOverlap.toFixed(2),
+          zOverlap: zOverlap.toFixed(2),
+          overlapRatio: (overlapRatio * 100).toFixed(1) + '%',
+          yValid
         });
 
-        console.log(
-          "🔗 [NewStacking] 거리 필터링 후 대상:",
-          closeTargets.map((t) => t.type)
-        );
+        return { subnet, overlapRatio, yValid };
+      });
 
-        // 가까운 대상과만 스태킹 관계 생성
-        closeTargets.forEach((target) => {
-          createStackingRelation(newBlock.id, target.id, allBlocks);
-          console.log("🔗 [NewStacking] EC2 스태킹 관계 생성:", target.type);
-        });
+      // 겹침 면적이 30% 이상이고 Y축 검증 통과한 Subnet 필터링
+      const validSubnets = subnetOverlapData
+        .filter(data => data.overlapRatio >= 0.3 && data.yValid)
+        .sort((a, b) => b.overlapRatio - a.overlapRatio);
 
-        // 위치 조정은 주요 대상(Subnet 우선)으로
-        const primaryTarget = selectStackingTargetByPriority(
-          newBlock,
-          closeTargets
-        );
-        if (forcePosition && primaryTarget) {
-          const stackedPosition = calculateStackedPosition(
-            newBlock,
-            primaryTarget
-          );
-          moveBlock(newBlock.id, stackedPosition);
-          console.log(
-            "📍 [NewStacking] EC2 위치 조정됨 (주요 대상:",
-            primaryTarget.type,
-            ")"
-          );
-        } else {
-          console.log("🎯 [NewStacking] EC2 사용자 위치 유지");
-        }
-      } else {
-        // 다른 블록 타입은 기존 방식 (단일 대상)
-        const targetBlock = selectStackingTargetByPriority(
-          newBlock,
-          potentialTargets
-        );
+      console.log("✅ [NewStacking] 최종 스태킹 타겟:", {
+        volumes: validVolumes.map(v => `${v.type}(${v.id.substring(0, 8)})`),
+        subnets: validSubnets.map(s => `${s.subnet.type}(${s.subnet.id.substring(0, 8)}) - ${(s.overlapRatio * 100).toFixed(1)}%`)
+      });
 
-        if (targetBlock) {
-          console.log("🔗 [NewStacking] 스태킹 대상 발견:", targetBlock.type);
+      // 4단계: 스태킹 관계 생성
+      validVolumes.forEach(vol => {
+        createStackingRelation(newBlock.id, vol.id, allBlocks);
+        console.log("🔗 [NewStacking] 부트볼륨 연결:", vol.type);
+      });
 
-          // 스태킹 관계 생성
-          createStackingRelation(newBlock.id, targetBlock.id, allBlocks);
-
-          // 위치 조정 (옵션)
-          if (forcePosition) {
-            const stackedPosition = calculateStackedPosition(
-              newBlock,
-              targetBlock
-            );
-            moveBlock(newBlock.id, stackedPosition);
-            console.log("📍 [NewStacking] 위치 강제 조정됨");
-          } else {
-            console.log("🎯 [NewStacking] 사용자 위치 유지");
-          }
-        }
+      if (validSubnets.length > 0) {
+        const bestSubnet = validSubnets[0].subnet;
+        createStackingRelation(newBlock.id, bestSubnet.id, allBlocks);
+        console.log("🔗 [NewStacking] Subnet 연결:", bestSubnet.type, `(${(validSubnets[0].overlapRatio * 100).toFixed(1)}%)`);
       }
+
+      // 위치 조정 없음 (사용자 드래그 위치 유지)
+      console.log("🎯 [NewStacking] EC2 사용자 위치 유지");
 
       // 즉시 연결 업데이트
       const derivedConnections = deriveConnectionsFromStacking(allBlocks);
@@ -306,7 +313,47 @@ function ProjectEditorPage() {
         "개"
       );
     } else {
-      console.log("ℹ️ [NewStacking] 스태킹 대상 없음");
+      // ===== 일반 블록 로직 =====
+      const potentialTargets = allBlocks
+        .filter((block) => block.id !== newBlock.id)
+        .filter((block) => canStack(newBlock.type, block.type))
+        .filter((block) => validateStacking(newBlock, block));
+
+      if (potentialTargets.length > 0) {
+        const targetBlock = selectStackingTargetByPriority(
+          newBlock,
+          potentialTargets
+        );
+
+        if (targetBlock) {
+          console.log("🔗 [NewStacking] 스태킹 대상 발견:", targetBlock.type);
+          createStackingRelation(newBlock.id, targetBlock.id, allBlocks);
+
+          if (forcePosition) {
+            const stackedPosition = calculateStackedPosition(newBlock, targetBlock);
+            moveBlock(newBlock.id, stackedPosition);
+            console.log("📍 [NewStacking] 위치 강제 조정됨");
+          } else {
+            console.log("🎯 [NewStacking] 사용자 위치 유지");
+          }
+        }
+
+        // 즉시 연결 업데이트
+        const derivedConnections = deriveConnectionsFromStacking(allBlocks);
+        const nonStackingConnections = connections.filter(
+          (conn) => !conn.properties?.stackConnection
+        );
+        const allConnections = [...nonStackingConnections, ...derivedConnections];
+        setConnections(allConnections);
+
+        console.log(
+          "✅ [NewStacking] 스태킹 완료 + 연결 업데이트:",
+          derivedConnections.length,
+          "개"
+        );
+      } else {
+        console.log("ℹ️ [NewStacking] 스태킹 대상 없음");
+      }
     }
   };
 

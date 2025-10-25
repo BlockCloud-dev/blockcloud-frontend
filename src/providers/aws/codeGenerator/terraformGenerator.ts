@@ -245,19 +245,58 @@ resource "aws_ebs_volume" "${this.sanitizeResourceName(volume.id)}" {
     const instanceType = ec2.properties.instanceType || "t3.micro";
     const ami = ec2.properties.ami || "ami-0c6e5afdd23291f73";
 
-    const subnetRef = subnets.length > 0 ?
-      `aws_subnet.${this.sanitizeResourceName(subnets[0].id)}.id` :
-      '"subnet-xxxxxx"';
+    // EC2-Subnet 연결 찾기 (스태킹 관계)
+    const subnetConnection = connections.find(conn =>
+      (conn.fromBlockId === ec2.id || conn.toBlockId === ec2.id) &&
+      conn.properties?.stackConnection === true &&
+      subnets.some(s => s.id === conn.fromBlockId || s.id === conn.toBlockId)
+    );
+
+    let subnetRef = '"subnet-xxxxxx"';
+    if (subnetConnection) {
+      // 연결된 Subnet ID 찾기
+      const connectedSubnetId = subnetConnection.fromBlockId === ec2.id
+        ? subnetConnection.toBlockId
+        : subnetConnection.fromBlockId;
+      const connectedSubnet = subnets.find(s => s.id === connectedSubnetId);
+
+      if (connectedSubnet) {
+        subnetRef = `aws_subnet.${this.sanitizeResourceName(connectedSubnet.id)}.id`;
+        console.log(`[EC2CodeGen] EC2 ${ec2.id.substring(0, 8)} → Subnet ${connectedSubnet.id.substring(0, 8)}`);
+      }
+    } else if (subnets.length > 0) {
+      // 연결이 없으면 첫 번째 Subnet 사용 (fallback)
+      subnetRef = `aws_subnet.${this.sanitizeResourceName(subnets[0].id)}.id`;
+      console.warn(`[EC2CodeGen] No subnet connection found for EC2 ${ec2.id.substring(0, 8)}, using first subnet`);
+    }
 
     // 부트볼륨 찾기 (스태킹된 Volume)
+    console.log(`[EC2CodeGen] EC2 ${ec2.id.substring(0, 8)} - 부트볼륨 검색 중...`);
+    console.log(`[EC2CodeGen] 전체 연결 수: ${connections.length}, Volume 수: ${volumes.length}`);
+
     const bootVolume = volumes.find((volume) => {
       const volumeConnection = connections.find(conn =>
         (conn.fromBlockId === ec2.id && conn.toBlockId === volume.id) ||
         (conn.fromBlockId === volume.id && conn.toBlockId === ec2.id)
       );
+
+      if (volumeConnection) {
+        console.log(`[EC2CodeGen] Volume ${volume.id.substring(0, 8)} 연결 발견:`, {
+          stackConnection: volumeConnection.properties?.stackConnection,
+          volumeType: volumeConnection.properties?.volumeType,
+          fromTo: `${volumeConnection.fromBlockId.substring(0, 8)} → ${volumeConnection.toBlockId.substring(0, 8)}`
+        });
+      }
+
       return volumeConnection?.properties?.stackConnection === true &&
         volumeConnection?.properties?.volumeType === 'boot';
     });
+
+    if (bootVolume) {
+      console.log(`✅ [EC2CodeGen] 부트볼륨 찾음: ${bootVolume.id.substring(0, 8)} (${bootVolume.properties.name})`);
+    } else {
+      console.log(`❌ [EC2CodeGen] 부트볼륨 없음`);
+    }
 
     let code = `# EC2 Instance: ${ec2.properties.name || ec2.name}
 resource "aws_instance" "${this.sanitizeResourceName(ec2.id)}" {

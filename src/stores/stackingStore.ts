@@ -6,7 +6,7 @@ import { Vector3 } from 'three';
 // 스태킹 상태 타입 정의
 interface StackingState {
   isStacked: boolean;
-  parentBlockId?: string;  // 무엇 위에 스택되었는지
+  parentBlockIds: string[];  // 여러 부모 지원 (Volume + Subnet 등)
   childBlockIds: string[]; // 무엇이 이 블록 위에 스택되었는지
   stackingType: 'foundation' | 'compute' | 'storage' | 'boot-volume';
 }
@@ -297,34 +297,37 @@ export const useStackingStore = create<StackingStoreState>()(
 
       if (!rule) return;
 
-      // 자식 블록 스태킹 상태 업데이트
+      // 기존 자식 블록 상태 가져오기
+      const existingChildState = stackingStates.get(childId);
+      
+      // 자식 블록 스태킹 상태 업데이트 (여러 부모 지원)
       const childStackingState: StackingState = {
         isStacked: true,
-        parentBlockId: parentId,
-        childBlockIds: [],
+        parentBlockIds: existingChildState 
+          ? [...new Set([...existingChildState.parentBlockIds, parentId])]  // 중복 제거하며 추가
+          : [parentId],
+        childBlockIds: existingChildState?.childBlockIds || [],
         stackingType: rule.isBootVolume ? 'boot-volume' :
-          // Foundation: VPC/Network 또는 Subnet
           childBlock.type === 'aws-vpc' || childBlock.type === 'aws-subnet' ||
             childBlock.type === 'gcp-vpc-network' || childBlock.type === 'gcp-subnet' ||
             childBlock.type === 'azure-virtual-network' || childBlock.type === 'azure-subnet' ? 'foundation' :
-            // Compute: EC2, Compute Engine, Virtual Machine
             childBlock.type === 'aws-ec2' ||
               childBlock.type === 'gcp-compute-engine' ||
               childBlock.type === 'azure-virtual-machine' ? 'compute' :
-              // Storage: Volume, Disk
               'storage'
       };
 
       // 부모 블록 자식 목록 업데이트
       const parentStackingState = stackingStates.get(parentId) || {
         isStacked: false,
+        parentBlockIds: [],
         childBlockIds: [],
         stackingType: 'foundation' as const
       };
 
       const updatedParentState = {
         ...parentStackingState,
-        childBlockIds: [...parentStackingState.childBlockIds, childId]
+        childBlockIds: [...new Set([...parentStackingState.childBlockIds, childId])]  // 중복 제거
       };
 
       // 상태 업데이트
@@ -356,16 +359,16 @@ export const useStackingStore = create<StackingStoreState>()(
         // 자신의 스태킹 상태 제거
         newMap.delete(blockId);
 
-        // 부모에서 자신을 제거
-        if (blockState.parentBlockId) {
-          const parentState = newMap.get(blockState.parentBlockId);
+        // 모든 부모에서 자신을 제거
+        blockState.parentBlockIds.forEach(parentId => {
+          const parentState = newMap.get(parentId);
           if (parentState) {
-            newMap.set(blockState.parentBlockId, {
+            newMap.set(parentId, {
               ...parentState,
               childBlockIds: parentState.childBlockIds.filter(id => id !== blockId)
             });
           }
-        }
+        });
 
         // 자식들의 부모 정보 제거
         blockState.childBlockIds.forEach(childId => {
@@ -373,8 +376,8 @@ export const useStackingStore = create<StackingStoreState>()(
           if (childState) {
             newMap.set(childId, {
               ...childState,
-              isStacked: false,
-              parentBlockId: undefined
+              isStacked: childState.parentBlockIds.length > 1,  // 다른 부모가 있으면 여전히 stacked
+              parentBlockIds: childState.parentBlockIds.filter(id => id !== blockId)
             });
           }
         });
@@ -395,51 +398,55 @@ export const useStackingStore = create<StackingStoreState>()(
 
       // 각 스택된 블록에 대해 연결 생성
       for (const [blockId, state] of stackingStates.entries()) {
-        if (!state.isStacked || !state.parentBlockId) continue;
+        if (!state.isStacked || state.parentBlockIds.length === 0) continue;
 
         const childBlock = blocks.find(b => b.id === blockId);
-        const parentBlock = blocks.find(b => b.id === state.parentBlockId);
+        if (!childBlock) continue;
 
-        if (!childBlock || !parentBlock) continue;
+        // 모든 부모와의 연결 생성
+        state.parentBlockIds.forEach(parentId => {
+          const parentBlock = blocks.find(b => b.id === parentId);
+          if (!parentBlock) return;
 
-        const rule = stackingRules.find(r =>
-          r.childType === childBlock.type && r.parentType === parentBlock.type
-        );
+          const rule = stackingRules.find(r =>
+            r.childType === childBlock.type && r.parentType === parentBlock.type
+          );
 
-        if (!rule) continue;
+          if (!rule) return;
 
-        // 결정적 연결 ID 생성
-        const connectionId = `${rule.connectionType}_${[state.parentBlockId, blockId].sort().join('_')}`;
+          // 결정적 연결 ID 생성
+          const connectionId = `${rule.connectionType}_${[parentId, blockId].sort().join('_')}`;
 
-        const connection: Connection = {
-          id: connectionId,
-          fromBlockId: state.parentBlockId,
-          toBlockId: blockId,
-          connectionType: rule.connectionType,
-          properties: {
-            stackConnection: true,
-            description: rule.isBootVolume
-              ? `${parentBlock.type} → ${childBlock.type} 부트 볼륨 연결`
-              : `${parentBlock.type} → ${childBlock.type} 스태킹 연결`,
-            ...(rule.isBootVolume && {
-              volumeType: 'boot' as const,
-              isRootVolume: true,
-              deviceName: '/dev/sda1',
-              deleteOnTermination: true
-            })
+          const connection: Connection = {
+            id: connectionId,
+            fromBlockId: parentId,
+            toBlockId: blockId,
+            connectionType: rule.connectionType,
+            properties: {
+              stackConnection: true,
+              description: rule.isBootVolume
+                ? `${parentBlock.type} → ${childBlock.type} 부트 볼륨 연결`
+                : `${parentBlock.type} → ${childBlock.type} 스태킹 연결`,
+              ...(rule.isBootVolume && {
+                volumeType: 'boot' as const,
+                isRootVolume: true,
+                deviceName: '/dev/sda1',
+                deleteOnTermination: true
+              })
+            }
+          };
+
+          connections.push(connection);
+
+          if (rule.isBootVolume) {
+            console.log('🥾 [StackingStore] 부트볼륨 연결 생성:', {
+              connection: connectionId,
+              from: `${parentBlock.type}(${parentId?.substring(0, 8) || 'unknown'})`,
+              to: `${childBlock.type}(${blockId?.substring(0, 8) || 'unknown'})`,
+              type: rule.connectionType
+            });
           }
-        };
-
-        connections.push(connection);
-
-        if (rule.isBootVolume) {
-          console.log('🥾 [StackingStore] 부트볼륨 연결 생성:', {
-            connection: connectionId,
-            from: `${parentBlock.type}(${state.parentBlockId?.substring(0, 8) || 'unknown'})`,
-            to: `${childBlock.type}(${blockId?.substring(0, 8) || 'unknown'})`,
-            type: rule.connectionType
-          });
-        }
+        });
       }
 
       console.log('📊 스태킹에서 연결 파생:', connections.length, '개');
