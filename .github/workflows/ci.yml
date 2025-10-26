@@ -37,3 +37,25 @@ jobs:
           file: Dockerfile 
           push: true
           tags: ${{ env.NCP_REGISTRY }}/${{ env.NCR_REPO }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }}
+
+      - name: 5. YAML 수정 도구(yq) 설치 
+        run: |
+          sudo apt-get update && sudo apt-get install -y yq
+
+      - name: 6. Deployment YAML 파일 태그 업데이트 및 커밋 (PAT 직접 사용)
+        env:
+          MANIFEST_PAT: ${{ secrets.MANIFEST_REPO_PAT }}
+          YAML_FILE: front-deployment.yaml 
+          MANIFEST_REPO_URL: https://github.com/BlockCloud-dev/blockcloud-manifest 
+        run: |
+          git clone $MANIFEST_REPO_URL manifest-repo
+          cd manifest-repo
+          
+          NEW_IMAGE_FULL_TAG="${{ env.NCP_REGISTRY }}/${{ env.NCR_REPO }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }}"
+          yq e '.spec.template.spec.containers[0].image = "'"$NEW_IMAGE_FULL_TAG"'"' -i $YAML_FILE
+          
+          git add $YAML_FILE
+          git commit -m "CD: Update front-end image to ${{ env.IMAGE_TAG }}" || echo "No changes to commit"
+          
+          # ${{ github.actor }}는 현재 워크플로우를 실행한 사용자(또는 bot)의 이름입니다.
+          git push https://${{ github.actor }}:${{ env.MANIFEST_PAT }}@github.com/BlockCloud-dev/blockcloud-manifest.git
