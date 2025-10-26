@@ -20,8 +20,7 @@ const DashboardPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set()); // 👈 추가
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadProjects();
@@ -60,29 +59,6 @@ const DashboardPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleCreateProject = async (name: string, description: string) => {
-    setIsCreating(true);
-    try {
-      // apiFetch는 항상 unwrapped data를 반환
-      const project = await apiFetch("/api/projects", {
-        method: "POST",
-        body: JSON.stringify({ name, description }),
-      });
-
-      if (project?.id) {
-        await loadProjects();
-        setIsModalOpen(false);
-      } else {
-        throw new Error("프로젝트 생성 응답이 올바르지 않습니다.");
-      }
-    } catch (err: any) {
-      alert("프로젝트 생성 실패: " + (err?.message ?? "unknown error"));
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  // 👇 삭제 함수 추가
   const handleDeleteProject = async (projectId: string) => {
     const ok = window.confirm(
       "정말 이 프로젝트를 삭제하시겠어요? 이 작업은 되돌릴 수 없습니다."
@@ -227,8 +203,7 @@ const DashboardPage: React.FC = () => {
         <CreateProjectModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onSubmit={handleCreateProject}
-          isSubmitting={isCreating}
+        // onSubmit 제거 - ProjectCreateModal의 기본 동작 사용 (편집기로 이동)
         />
       )}
     </div>

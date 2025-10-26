@@ -80,7 +80,7 @@ const CreateProjectModal: React.FC<Props> = ({
   const isCurrentlyLoading = isSubmitting || loading;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-[60]">
       <div className="bg-white rounded-lg p-6 w-96">
         <h2 className="text-xl font-bold mb-4 text-gray-800">새 프로젝트 만들기</h2>
         <label className="block text-sm font-medium text-gray-700 mb-1">프로젝트 이름</label>
