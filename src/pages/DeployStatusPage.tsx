@@ -26,8 +26,9 @@ const DeployStatusPage: React.FC = () => {
 
   const loadProjects = async () => {
     try {
-      const res = await apiFetch("/api/projects?size=100");
-      setProjects(res.data?.projects || []);
+      // apiFetch는 항상 unwrapped data를 반환
+      const data = await apiFetch("/api/projects?size=100");
+      setProjects(data?.projects || []);
     } catch (err) {
       toast.error("프로젝트 목록을 불러오는 데 실패했습니다.", {
         id: "fetch-projects",

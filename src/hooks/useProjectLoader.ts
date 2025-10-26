@@ -28,7 +28,7 @@ export const useProjectLoader = () => {
     if (initialProviderFromNav) {
       console.log('🆕 [ProjectLoader] Setting initial provider from navigation:', initialProviderFromNav);
       setCurrentCSP(initialProviderFromNav);
-      
+
       let providerType: CloudProviderType;
       switch (initialProviderFromNav) {
         case 'GCP':
@@ -50,38 +50,33 @@ export const useProjectLoader = () => {
 
     const loadBlocksFromAPI = async () => {
       try {
-        const res = await apiFetch(`/api/block/${projectId}`);
+        // apiFetch는 항상 unwrapped data를 반환
+        const data = await apiFetch(`/api/block/${projectId}`);
 
-        // 응답 스키마 호환 처리: res.blocks 또는 res.data.blocks
-        const blocks =
-          (res?.data?.blocks as DroppedBlock[]) ??
-          (res?.blocks as DroppedBlock[]) ??
-          [];
+        // 블록 데이터 추출
+        const blocks = (data?.blocks as DroppedBlock[]) ?? [];
 
         if (Array.isArray(blocks)) {
           setDroppedBlocks(blocks);
           console.log('✅ 프로젝트 블록 불러오기 성공:', blocks.length);
         } else {
-          console.warn('⚠️ 불러온 블록 데이터 형식이 올바르지 않습니다.', res);
+          console.warn('⚠️ 불러온 블록 데이터 형식이 올바르지 않습니다.', data);
         }
 
-        // 연결도 내려줄 경우를 대비해 옵션 처리
-        const apiConnections =
-          (res?.data?.connections as any[]) ??
-          (res?.connections as any[]) ??
-          null;
+        // 연결 데이터 추출
+        const apiConnections = (data?.connections as any[]) ?? null;
         if (Array.isArray(apiConnections)) {
           setConnections(apiConnections);
           console.log('✅ 프로젝트 연결 불러오기 성공:', apiConnections.length);
         }
 
         // 프로젝트의 클라우드 프로바이더 설정 불러오기
-        const projectProvider = res?.data?.provider ?? res?.provider;
-        
+        const projectProvider = data?.provider;
+
         // 초기 프로바이더가 navigation state로 전달되었으면 그것을 우선 사용
         // (프로젝트 생성 직후에는 서버에 provider가 없을 수 있음)
         const finalProvider = initialProviderFromNav || projectProvider || 'AWS';
-        
+
         console.log('🔄 [ProjectLoader] Provider priority:', {
           fromNav: initialProviderFromNav,
           fromServer: projectProvider,

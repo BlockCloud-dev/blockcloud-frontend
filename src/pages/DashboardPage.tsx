@@ -30,8 +30,9 @@ const DashboardPage: React.FC = () => {
   const loadProjects = async () => {
     setIsLoading(true);
     try {
-      const res = await apiFetch("/api/projects?size=8");
-      const projectsFromApi = res?.data?.projects ?? [];
+      // apiFetch는 항상 unwrapped data를 반환 (data.data 또는 data)
+      const data = await apiFetch("/api/projects?size=8");
+      const projectsFromApi = data?.projects ?? [];
 
       const parsed: Project[] = projectsFromApi.map((proj: any) => ({
         id: String(proj.id),
@@ -62,12 +63,11 @@ const DashboardPage: React.FC = () => {
   const handleCreateProject = async (name: string, description: string) => {
     setIsCreating(true);
     try {
-      const response = await apiFetch("/api/projects", {
+      // apiFetch는 항상 unwrapped data를 반환
+      const project = await apiFetch("/api/projects", {
         method: "POST",
         body: JSON.stringify({ name, description }),
       });
-
-      const project = response.data;
 
       if (project?.id) {
         await loadProjects();
