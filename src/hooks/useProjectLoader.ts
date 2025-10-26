@@ -9,6 +9,7 @@ export const useProjectLoader = () => {
   const { id: projectId } = useParams<{ id: string }>();
   const location = useLocation();
   const projectNameFromNav = location.state?.projectName;
+  const initialProviderFromNav = location.state?.initialProvider as 'AWS' | 'GCP' | 'Azure' | undefined;
 
   const setDroppedBlocks = useBlockStore((state) => state.setDroppedBlocks);
   const setConnections = useConnectionStore((state) => state.setConnections);
@@ -21,6 +22,27 @@ export const useProjectLoader = () => {
       setProjectName(projectNameFromNav);
     }
   }, [projectNameFromNav, setProjectName]);
+
+  // 초기 프로바이더 설정 (프로젝트 생성 직후)
+  useEffect(() => {
+    if (initialProviderFromNav) {
+      console.log('🆕 [ProjectLoader] Setting initial provider from navigation:', initialProviderFromNav);
+      setCurrentCSP(initialProviderFromNav);
+      
+      let providerType: CloudProviderType;
+      switch (initialProviderFromNav) {
+        case 'GCP':
+          providerType = CloudProviderType.GCP;
+          break;
+        case 'Azure':
+          providerType = CloudProviderType.AZURE;
+          break;
+        default:
+          providerType = CloudProviderType.AWS;
+      }
+      providerManager.setCurrentProvider(providerType);
+    }
+  }, [initialProviderFromNav, setCurrentCSP]);
 
   // 프로젝트 데이터 로드
   useEffect(() => {
@@ -54,15 +76,24 @@ export const useProjectLoader = () => {
         }
 
         // 프로젝트의 클라우드 프로바이더 설정 불러오기
-        const projectProvider = res?.data?.provider ?? res?.provider ?? 'AWS';
-        console.log('🔄 [ProjectEditor] Loading project with provider:', projectProvider);
+        const projectProvider = res?.data?.provider ?? res?.provider;
+        
+        // 초기 프로바이더가 navigation state로 전달되었으면 그것을 우선 사용
+        // (프로젝트 생성 직후에는 서버에 provider가 없을 수 있음)
+        const finalProvider = initialProviderFromNav || projectProvider || 'AWS';
+        
+        console.log('🔄 [ProjectLoader] Provider priority:', {
+          fromNav: initialProviderFromNav,
+          fromServer: projectProvider,
+          final: finalProvider
+        });
 
         // 프로바이더 설정 (UI 상태와 프로바이더 매니저 모두 업데이트)
-        setCurrentCSP(projectProvider as 'AWS' | 'GCP' | 'Azure');
+        setCurrentCSP(finalProvider as 'AWS' | 'GCP' | 'Azure');
 
         // 프로바이더 매니저에서도 현재 프로바이더 설정
         let providerType: CloudProviderType;
-        switch (projectProvider) {
+        switch (finalProvider) {
           case 'GCP':
             providerType = CloudProviderType.GCP;
             break;
@@ -79,7 +110,7 @@ export const useProjectLoader = () => {
     };
 
     loadBlocksFromAPI();
-  }, [projectId, setDroppedBlocks, setConnections, setCurrentCSP]);
+  }, [projectId, setDroppedBlocks, setConnections, setCurrentCSP, initialProviderFromNav]);
 
   return { projectId };
 };

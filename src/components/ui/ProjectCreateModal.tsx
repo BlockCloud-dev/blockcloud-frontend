@@ -61,8 +61,13 @@ const CreateProjectModal: React.FC<Props> = ({
         setCurrentCSP(cspString);
         providerManager.setCurrentProvider(selectedProvider);
 
-        // 3. 프로젝트 에디터 페이지로 이동
-        navigate(`/project/${project.id}`);
+        // 3. 프로젝트 에디터 페이지로 이동 (프로바이더 정보를 state로 전달)
+        navigate(`/project/${project.id}`, {
+          state: {
+            projectName: name,
+            initialProvider: cspString,
+          }
+        });
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : "생성 실패");
