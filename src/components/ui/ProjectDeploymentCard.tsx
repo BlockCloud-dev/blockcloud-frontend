@@ -79,10 +79,10 @@ const ProjectDeploymentCard: React.FC<Props> = ({
   useEffect(() => {
     const fetchDeployments = async () => {
       try {
-        const res = await apiFetch(
+        const data = await apiFetch(
           `/api/projects/${projectId}/terraform/deployments?size=1`
         );
-        setDeployments(res.data?.deployments || []);
+        setDeployments(data?.deployments || []);
       } catch (err) {
         toast.error(
           `프로젝트 ${projectName}의 배포 이력을 불러오지 못했습니다.`,

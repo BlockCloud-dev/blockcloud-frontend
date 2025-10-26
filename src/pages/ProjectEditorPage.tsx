@@ -1466,7 +1466,8 @@ terraform {
         }
       );
 
-      const isValid = validateRes?.data?.valid;
+      // apiFetch가 이미 unwrapped data를 반환
+      const isValid = validateRes?.valid;
 
       if (!isValid) {
         setLoadingStatus(null); // ✅ 중단 시 로딩 종료
@@ -1487,8 +1488,9 @@ terraform {
         }
       );
 
-      const status = applyRes?.data?.status;
-      const message = applyRes?.data?.message;
+      // apiFetch가 이미 unwrapped data를 반환
+      const status = applyRes?.status;
+      const message = applyRes?.message;
 
       if (status === "SUCCESS" || status === "PENDING") {
         toast.success(`🚀 배포 요청 완료: ${message}`);

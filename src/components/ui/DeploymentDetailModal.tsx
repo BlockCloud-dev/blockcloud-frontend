@@ -50,10 +50,10 @@ const DeploymentDetailModal: React.FC<Props> = ({
   useEffect(() => {
     const fetchDetail = async () => {
       try {
-        const res = await apiFetch(
+        const data = await apiFetch(
           `/api/projects/${projectId}/terraform/deployments/${deploymentId}`
         );
-        setDetail(res.data);
+        setDetail(data);
       } catch (err) {
         toast.error("배포 상세 정보를 불러오지 못했습니다.");
       } finally {

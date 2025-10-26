@@ -4,6 +4,7 @@ import { useProjectStore } from "../../stores";
 import { useBlockStore } from "../../stores/blockStore";
 import { useAuth } from "../../stores/authStore";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../utils/apiClients";
 
 const MainHeader: React.FC<{
   onSaveProject: () => void;
@@ -37,21 +38,17 @@ const MainHeader: React.FC<{
     setProjectName(trimmed);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      // apiFetch 사용으로 토큰 갱신 자동 처리
+      await apiFetch(`/api/projects/${projectId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
         },
         body: JSON.stringify({
           name: trimmed,
           description,
         }),
       });
-
-      if (!response.ok) {
-        throw new Error(`(${response.status}) 서버 응답 오류`);
-      }
 
       // 필요 시 서버 응답에서 name을 다시 읽어 동기화 가능
     } catch (err: any) {
