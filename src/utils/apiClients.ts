@@ -1,4 +1,5 @@
 import { TokenStorage } from "../services/authService";
+import type { ApiResponse } from "../types/auth";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
@@ -47,7 +48,15 @@ export const apiFetch = async (
       throw new Error("로그인이 만료되었습니다.");
     }
 
-    const { accessToken: newAccessToken } = await refreshRes.json();
+    const refreshData: ApiResponse = await refreshRes.json();
+
+    if (!refreshData.success || !refreshData.data) {
+      console.error("❌ refresh token 갱신 실패");
+      TokenStorage.clearAll();
+      throw new Error(refreshData.error?.message || "로그인이 만료되었습니다.");
+    }
+
+    const newAccessToken = refreshData.data.accessToken;
     TokenStorage.saveTokens(newAccessToken, TokenStorage.getRefreshToken() || "");
     accessToken = newAccessToken;
 
@@ -64,12 +73,6 @@ export const apiFetch = async (
   }
 
   // 3. 최종 응답 처리 (빈 응답도 대응)
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || "API 요청 실패");
-  }
-
-  // 🔁 Content-Length가 0일 수도 있음
   const contentType = res.headers.get("Content-Type");
   if (
     res.status === 204 ||
@@ -79,7 +82,22 @@ export const apiFetch = async (
     return null;
   }
 
-  return res.json();
+  const data: ApiResponse = await res.json();
+
+  // 4. success: false인 경우 에러 처리
+  if (!data.success && data.error) {
+    const errorMsg = data.error.message || "API 요청 실패";
+    const fields = data.error.fields;
+
+    if (fields) {
+      const fieldErrors = Object.values(fields).join(", ");
+      throw new Error(fieldErrors || errorMsg);
+    }
+
+    throw new Error(errorMsg);
+  }
+
+  return data.data || data;
 };
 
 export const logout = async () => {
@@ -88,7 +106,9 @@ export const logout = async () => {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    throw new Error("로그아웃 실패");
+  const data: ApiResponse = await res.json();
+
+  if (!data.success && data.error) {
+    throw new Error(data.error.message || "로그아웃 실패");
   }
 };

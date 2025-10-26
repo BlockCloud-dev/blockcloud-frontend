@@ -3,6 +3,7 @@ import type {
   RefreshTokenResponse,
   LoginRequest,
   User,
+  ApiResponse,
 } from "../types/auth";
 
 const API_BASE_URL =
@@ -19,8 +20,22 @@ export class AuthService {
       body: JSON.stringify(credentials),
     });
 
-    if (!res.ok) throw new Error("로그인 실패");
-    return res.json();
+    const data: ApiResponse<LoginResponse> = await res.json();
+
+    if (!data.success || !data.data) {
+      const errorMsg = data.error?.message || "로그인 실패";
+      const fields = data.error?.fields;
+
+      // 필드별 에러가 있으면 첫 번째 필드 에러 메시지 사용
+      if (fields) {
+        const firstFieldError = Object.values(fields)[0];
+        throw new Error(firstFieldError || errorMsg);
+      }
+
+      throw new Error(errorMsg);
+    }
+
+    return data.data;
   }
 
   static async refreshToken(): Promise<RefreshTokenResponse> {
@@ -30,12 +45,17 @@ export class AuthService {
       credentials: "include", // 🍪 리프레시 토큰은 쿠키에 있음
     });
 
-    if (!res.ok) throw new Error("토큰 갱신 실패");
-    return res.json(); // { accessToken: string, user: User }
+    const data: ApiResponse<RefreshTokenResponse> = await res.json();
+
+    if (!data.success || !data.data) {
+      throw new Error(data.error?.message || "토큰 갱신 실패");
+    }
+
+    return data.data;
   }
 
   static async logout(accessToken: string): Promise<void> {
-    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    const res = await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -43,10 +63,16 @@ export class AuthService {
       },
       credentials: "include",
     });
+
+    const data: ApiResponse = await res.json();
+
+    if (!data.success && data.error) {
+      throw new Error(data.error.message || "로그아웃 실패");
+    }
   }
 
   static async signOut(accessToken: string): Promise<void> {
-    await fetch(`${API_BASE_URL}/api/auth/sign-out`, {
+    const res = await fetch(`${API_BASE_URL}/api/auth/sign-out`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -54,6 +80,12 @@ export class AuthService {
       },
       credentials: "include",
     });
+
+    const data: ApiResponse = await res.json();
+
+    if (!data.success && data.error) {
+      throw new Error(data.error.message || "계정 삭제 실패");
+    }
   }
 }
 

@@ -46,9 +46,16 @@ export interface AuthState {
 
 // API 에러 타입
 export interface ApiError {
+  code: number;
   message: string;
-  status: number;
-  code?: string;
+  fields?: Record<string, string>;
+}
+
+// API 공통 응답 타입
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data: T | null;
+  error: ApiError | null;
 }
 
 // 로그인 요청 타입 (테스트용)
