@@ -25,12 +25,8 @@ const LoginSuccessPage = () => {
         // ✅ user 디코딩
         const user = JSON.parse(decodeURIComponent(userEncoded));
 
-        // ✅ AuthStore에 저장
+        // ✅ AuthStore에 저장 (TokenStorage도 내부에서 자동 호출됨)
         await handleOAuthCallback(accessToken, user);
-
-        // ✅ localStorage에도 저장 (선택적)
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("user", JSON.stringify(user));
 
         setStatus("success");
 

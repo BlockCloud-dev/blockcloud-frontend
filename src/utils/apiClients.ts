@@ -1,3 +1,5 @@
+import { TokenStorage } from "../services/authService";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
@@ -5,18 +7,18 @@ export const apiFetch = async (
   endpoint: string,
   options: RequestInit = {}
 ): Promise<any> => {
-  let accessToken = localStorage.getItem("accessToken");
+  let accessToken = TokenStorage.getAccessToken();
 
   // 1. 첫 요청
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  
+
   // 기존 headers 복사
   if (options.headers) {
     Object.assign(headers, options.headers);
   }
-  
+
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
@@ -31,7 +33,7 @@ export const apiFetch = async (
   if (res.status === 401) {
     console.warn("🔁 accessToken 만료 → refresh 시도");
 
-    const refreshRes = await fetch(`${API_BASE_URL}/token/refresh`, {
+    const refreshRes = await fetch(`${API_BASE_URL}/api/token/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -41,12 +43,12 @@ export const apiFetch = async (
 
     if (!refreshRes.ok) {
       console.error("❌ refresh token도 만료됨. 로그인 필요");
-      localStorage.removeItem("accessToken");
+      TokenStorage.clearAll();
       throw new Error("로그인이 만료되었습니다.");
     }
 
     const { accessToken: newAccessToken } = await refreshRes.json();
-    localStorage.setItem("accessToken", newAccessToken);
+    TokenStorage.saveTokens(newAccessToken, TokenStorage.getRefreshToken() || "");
     accessToken = newAccessToken;
 
     // 원래 요청 재시도

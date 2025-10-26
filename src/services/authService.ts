@@ -6,13 +6,13 @@ import type {
 } from "../types/auth";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export class AuthService {
   static async loginWithEmail(
     credentials: LoginRequest
   ): Promise<LoginResponse> {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -24,7 +24,7 @@ export class AuthService {
   }
 
   static async refreshToken(): Promise<RefreshTokenResponse> {
-    const res = await fetch(`${API_BASE_URL}/token/refresh`, {
+    const res = await fetch(`${API_BASE_URL}/api/token/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include", // 🍪 리프레시 토큰은 쿠키에 있음
@@ -35,7 +35,7 @@ export class AuthService {
   }
 
   static async logout(accessToken: string): Promise<void> {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -46,7 +46,7 @@ export class AuthService {
   }
 
   static async signOut(accessToken: string): Promise<void> {
-    await fetch(`${API_BASE_URL}/auth/sign-out`, {
+    await fetch(`${API_BASE_URL}/api/auth/sign-out`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -88,7 +88,11 @@ export class TokenStorage {
     localStorage.removeItem(this.ACCESS_TOKEN_KEY);
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
-    localStorage.removeItem("isLoggedIn"); // 기존 임시 키도 정리
+
+    // 기존 중복 키들도 정리
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("isLoggedIn");
   }
 
   static hasValidTokens(): boolean {
