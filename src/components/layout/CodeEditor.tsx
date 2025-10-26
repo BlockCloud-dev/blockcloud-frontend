@@ -38,6 +38,7 @@ interface CodeEditorProps {
 export function CodeEditor({ }: CodeEditorProps) {
   // Zustand에서 생성된 코드 가져오기
   const generatedCode = useUIStore((state) => state.generatedCode);
+  const setGeneratedCode = useUIStore((state) => state.setGeneratedCode);
 
   const [code, setCode] = useState(defaultHCLCode);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +49,14 @@ export function CodeEditor({ }: CodeEditorProps) {
       setCode(generatedCode);
     }
   }, [generatedCode]);
+
+  // 코드 변경 시 Zustand에 저장
+  const handleCodeChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setCode(value);
+      setGeneratedCode(value); // 수정된 코드를 Zustand에 저장
+    }
+  };
 
   // 에디터 크기 조정을 위한 useEffect
   useEffect(() => {
@@ -168,7 +177,7 @@ export function CodeEditor({ }: CodeEditorProps) {
           width="100%"
           defaultLanguage="hcl"
           value={code}
-          onChange={(value) => setCode(value || "")}
+          onChange={handleCodeChange}
           onMount={handleEditorDidMount}
           theme="vs-dark"
           loading={
