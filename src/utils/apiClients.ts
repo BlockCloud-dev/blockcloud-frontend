@@ -32,8 +32,7 @@ export const apiFetch = async (
 
   // 2. accessToken 만료 → refresh 시도
   if (res.status === 401) {
-    console.warn("🔁 accessToken 만료 → refresh 시도");
-
+    // 콘솔 로그도 제거 - 사용자가 모르게 처리
     const refreshRes = await fetch(`${API_BASE_URL}/api/token/refresh`, {
       method: "POST",
       headers: {
@@ -43,24 +42,26 @@ export const apiFetch = async (
     });
 
     if (!refreshRes.ok) {
-      console.error("❌ refresh token도 만료됨. 로그인 필요");
+      // 리프레시 토큰도 만료됨 - 로그인 페이지로 리다이렉트
       TokenStorage.clearAll();
-      throw new Error("로그인이 만료되었습니다.");
+      window.location.href = "/login";
+      throw new Error("세션이 만료되었습니다.");
     }
 
     const refreshData: ApiResponse = await refreshRes.json();
 
     if (!refreshData.success || !refreshData.data) {
-      console.error("❌ refresh token 갱신 실패");
+      // 리프레시 토큰 갱신 실패 - 로그인 페이지로 리다이렉트
       TokenStorage.clearAll();
-      throw new Error(refreshData.error?.message || "로그인이 만료되었습니다.");
+      window.location.href = "/login";
+      throw new Error("세션이 만료되었습니다.");
     }
 
     const newAccessToken = refreshData.data.accessToken;
     TokenStorage.saveTokens(newAccessToken, TokenStorage.getRefreshToken() || "");
     accessToken = newAccessToken;
 
-    // 원래 요청 재시도
+    // 원래 요청 재시도 (사용자는 아무것도 모름)
     res = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
