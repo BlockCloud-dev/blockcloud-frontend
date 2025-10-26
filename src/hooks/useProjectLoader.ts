@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/apiClients';
-import { useBlockStore, useConnectionStore, useProjectStore } from '../stores';
+import { useBlockStore, useConnectionStore, useProjectStore, useStackingStore } from '../stores';
 import { providerManager, CloudProviderType } from '../providers';
 import type { DroppedBlock } from '../types/blocks';
 
@@ -15,6 +15,9 @@ export const useProjectLoader = () => {
   const setConnections = useConnectionStore((state) => state.setConnections);
   const setProjectName = useProjectStore((state) => state.setProjectName);
   const setCurrentCSP = useProjectStore((state) => state.setCurrentCSP);
+  const validateStacking = useStackingStore((state) => state.validateStacking);
+  const createStackingRelation = useStackingStore((state) => state.createStackingRelation);
+  const deriveConnectionsFromStacking = useStackingStore((state) => state.deriveConnectionsFromStacking);
 
   // 프로젝트 이름 설정
   useEffect(() => {
@@ -59,18 +62,43 @@ export const useProjectLoader = () => {
         if (Array.isArray(blocks)) {
           setDroppedBlocks(blocks);
           console.log('✅ 프로젝트 블록 불러오기 성공:', blocks.length);
+
+          // 블록 간 스태킹 관계 감지 및 복원
+          setTimeout(() => {
+            // 1. 모든 블록 쌍에 대해 스태킹 관계 확인
+            for (let i = 0; i < blocks.length; i++) {
+              for (let j = 0; j < blocks.length; j++) {
+                if (i === j) continue;
+
+                const childBlock = blocks[i];
+                const parentBlock = blocks[j];
+
+                // 스태킹 가능한지 검증 (위치 관계 포함)
+                const isStacked = validateStacking(childBlock, parentBlock);
+
+                if (isStacked) {
+                  // 스태킹 관계 생성
+                  createStackingRelation(childBlock.id, parentBlock.id, blocks);
+                  console.log('🔗 스태킹 관계 복원:', {
+                    child: childBlock.type,
+                    parent: parentBlock.type
+                  });
+                }
+              }
+            }
+
+            // 2. 스태킹 정보로부터 연결 생성
+            const derivedConnections = deriveConnectionsFromStacking(blocks);
+            if (derivedConnections.length > 0) {
+              setConnections(derivedConnections);
+              console.log('✅ 스태킹으로부터 연결 생성:', derivedConnections.length, '개');
+            } else {
+              console.log('ℹ️ 생성된 연결이 없습니다. (스태킹된 블록 없음)');
+            }
+          }, 100); // 블록 렌더링 후 연결 생성
         } else {
           console.warn('⚠️ 불러온 블록 데이터 형식이 올바르지 않습니다.', data);
-        }
-
-        // 연결 데이터 추출
-        const apiConnections = (data?.connections as any[]) ?? null;
-        if (Array.isArray(apiConnections)) {
-          setConnections(apiConnections);
-          console.log('✅ 프로젝트 연결 불러오기 성공:', apiConnections.length);
-        }
-
-        // 프로젝트의 클라우드 프로바이더 설정 불러오기
+        }        // 프로젝트의 클라우드 프로바이더 설정 불러오기
         const projectProvider = data?.provider;
 
         // 초기 프로바이더가 navigation state로 전달되었으면 그것을 우선 사용
@@ -105,7 +133,7 @@ export const useProjectLoader = () => {
     };
 
     loadBlocksFromAPI();
-  }, [projectId, setDroppedBlocks, setConnections, setCurrentCSP, initialProviderFromNav]);
+  }, [projectId, setDroppedBlocks, setConnections, setCurrentCSP, initialProviderFromNav, validateStacking, createStackingRelation, deriveConnectionsFromStacking]);
 
   return { projectId };
 };
